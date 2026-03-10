@@ -147,6 +147,15 @@ export default function SignupPage() {
           </div>
 
           <div>
+            <label className="block text-sm text-muted mb-1.5">권한 신청</label>
+            <div className="w-full px-4 py-2.5 bg-background border border-card-border rounded-lg
+                            text-foreground text-sm">
+              Trader
+            </div>
+            <p className="text-xs text-muted mt-1">최종 권한은 관리자 승인 시 지정됩니다</p>
+          </div>
+
+          <div>
             <label className="block text-sm text-muted mb-1.5">연락처</label>
             <input
               type="tel"
