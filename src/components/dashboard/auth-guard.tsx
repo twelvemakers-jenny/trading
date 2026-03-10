@@ -27,22 +27,27 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       setTrader(data as Trader | null)
     }
 
-    loadProfile()
+    // 이미 프로필이 로드된 상태면 재로딩 건너뛰기
+    if (!trader) {
+      loadProfile()
+    } else if (isLoading) {
+      setLoading(false)
+    }
 
     const supabase = createClient()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!session) {
           setTrader(null)
-        } else {
-          setLoading(true)
+        } else if (!trader) {
           loadProfile()
         }
       }
     )
 
     return () => subscription.unsubscribe()
-  }, [setTrader, setLoading])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (isLoading) {
     return (
