@@ -7,16 +7,16 @@ import { useSystemSchema, useUpdate, useInsert, type ExchangeConfig } from '@/li
 import type { FundSettings, RiskSettings } from '@/types/database'
 
 const DEFAULT_EXCHANGES: ExchangeConfig[] = [
-  { name: 'Bitget', color: '#00c8b5', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'WOO X', color: '#5b9cf6', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'Biconomy', color: '#7b61ff', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'Picol', color: '#e91e63', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'Jucom', color: '#ff9800', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'Tapbit', color: '#f7931a', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'Digifinex', color: '#2b6def', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'OrangeX', color: '#ff5722', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'MEXC', color: '#2196f3', rebate_pct: '', reward_pct: '', event_url: '' },
-  { name: 'Huobi', color: '#009688', rebate_pct: '', reward_pct: '', event_url: '' },
+  { name: 'Bitget', color: '#00c8b5', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'WOO X', color: '#5b9cf6', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Biconomy', color: '#7b61ff', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Picol', color: '#e91e63', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Jucom', color: '#ff9800', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Tapbit', color: '#f7931a', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Digifinex', color: '#2b6def', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'OrangeX', color: '#ff5722', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'MEXC', color: '#2196f3', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Huobi', color: '#009688', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
 ]
 
 const DEFAULT_FUND_SETTINGS: FundSettings = {
@@ -298,7 +298,7 @@ function ExchangeEditor({
   const addExchange = () => {
     setExchanges((prev) => [
       ...prev,
-      { name: '', color: '#6b7280', rebate_pct: '', reward_pct: '', event_url: '' },
+      { name: '', color: '#6b7280', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
     ])
     setSynced(false)
   }
@@ -413,6 +413,27 @@ function ExchangeEditor({
               {ex.event_url && (
                 <a
                   href={ex.event_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-accent hover:text-accent-hover whitespace-nowrap"
+                >
+                  열기
+                </a>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted whitespace-nowrap">어드민 페이지</label>
+              <input
+                type="url"
+                placeholder="https://..."
+                value={ex.admin_url}
+                onChange={(e) => updateExchange(i, { admin_url: e.target.value })}
+                className="flex-1 px-3 py-1.5 bg-background border border-card-border rounded text-sm text-foreground"
+              />
+              {ex.admin_url && (
+                <a
+                  href={ex.admin_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-accent hover:text-accent-hover whitespace-nowrap"
