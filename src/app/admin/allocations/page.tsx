@@ -201,7 +201,7 @@ export default function AllocationsPage() {
   }
 
   const handleDelete = (alloc: Allocation) => {
-    const traderName = traders.find((t) => t.id === alloc.trader_id)?.name ?? '-'
+    const traderName = traders.find((t) => t.id === alloc.trader_id)?.name ?? '없음'
     if (window.confirm(`"${traderName}" 에게 할당된 ${formatUSD(alloc.amount_usd)} 를 삭제하시겠습니까?`)) {
       deleteAllocation.mutate(alloc.id)
     }
@@ -230,7 +230,7 @@ export default function AllocationsPage() {
       },
     },
     { key: 'trader_id', header: '트레이더',
-      render: (row: Allocation) => traders.find((t: Trader) => t.id === row.trader_id)?.name ?? '-',
+      render: (row: Allocation) => traders.find((t: Trader) => t.id === row.trader_id)?.name ?? <span className="text-muted text-xs">없음</span>,
     },
     { key: 'amount_usd', header: '할당 금액', align: 'right' as const,
       render: (row: Allocation) => formatUSD(row.amount_usd),

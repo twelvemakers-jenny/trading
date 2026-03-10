@@ -206,7 +206,7 @@ export default function TransfersPage() {
     },
     { key: 'transfer_date', header: '이체일' },
     { key: 'trader_id', header: '트레이더',
-      render: (row: Transfer) => traders.find((t: Trader) => t.id === row.trader_id)?.name ?? '-',
+      render: (row: Transfer) => traders.find((t: Trader) => t.id === row.trader_id)?.name ?? <span className="text-muted text-xs">없음</span>,
     },
     { key: 'account_id', header: '계정',
       render: (row: Transfer) => {

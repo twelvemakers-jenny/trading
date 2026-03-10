@@ -112,7 +112,7 @@ export default function HistoryPage() {
   }
 
   const renderTrader = (pos: Position) =>
-    traders.find((t: Trader) => t.id === pos.trader_id)?.name ?? '-'
+    traders.find((t: Trader) => t.id === pos.trader_id)?.name ?? <span className="text-muted text-xs">없음</span>
 
   const renderAccount = (pos: Position) => {
     const a = accounts.find((ac: Account) => ac.id === pos.account_id)

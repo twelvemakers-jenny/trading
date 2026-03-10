@@ -24,13 +24,53 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function TradersPage() {
   const [editTarget, setEditTarget] = useState<Trader | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createError, setCreateError] = useState('')
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({})
-  const { data: traders = [], isLoading } = useTraders()
+  const { data: traders = [], isLoading, refetch } = useTraders()
   const updateTrader = useUpdate<Record<string, unknown>>('traders', ['traders'])
   const deleteTrader = useDelete('traders', ['traders'])
 
   const pendingTraders = traders.filter((t) => t.status === 'pending')
   const activeTraders = traders.filter((t) => t.status !== 'pending')
+
+  const createFields: FieldDefinition[] = [
+    { key: 'email', label: '이메일 (로그인 ID)', type: 'text', required: true },
+    { key: 'password', label: '비밀번호', type: 'text', required: true },
+    { key: 'name', label: '이름', type: 'text', required: true },
+    { key: 'role', label: '권한', type: 'select', required: true, options: ['trader', 'head_trader'] },
+    { key: 'phone', label: '연락처', type: 'text', required: false },
+  ]
+
+  const handleCreate = async (values: Record<string, string>) => {
+    setCreateError('')
+    setCreateLoading(true)
+    try {
+      const res = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+          name: values.name,
+          role: values.role,
+          phone: values.phone || '',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setCreateError(data.error || '생성 실패')
+        return
+      }
+      setIsCreateOpen(false)
+      refetch()
+    } catch {
+      setCreateError('서버 오류가 발생했습니다.')
+    } finally {
+      setCreateLoading(false)
+    }
+  }
 
   const handleEdit = (values: Record<string, string>) => {
     if (!editTarget) return
@@ -87,6 +127,7 @@ export default function TradersPage() {
       <PageHeader
         title="트레이더 관리"
         description="가입 신청을 승인하고 트레이더를 관리합니다"
+        action={{ label: '트레이더 추가', onClick: () => setIsCreateOpen(true) }}
       />
 
       {/* 가입 승인 대기 */}
@@ -158,6 +199,21 @@ export default function TradersPage() {
         등록된 트레이더 ({activeTraders.length}명)
       </h3>
       <DataTable columns={columns} data={activeTraders} isLoading={isLoading} />
+
+      {/* 트레이더 추가 모달 */}
+      <Modal isOpen={isCreateOpen} onClose={() => { setIsCreateOpen(false); setCreateError('') }} title="트레이더 추가">
+        {createError && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+            {createError}
+          </div>
+        )}
+        <DynamicForm
+          fields={createFields}
+          onSubmit={handleCreate}
+          submitLabel="생성"
+          isLoading={createLoading}
+        />
+      </Modal>
 
       {/* 수정 모달 */}
       <Modal isOpen={!!editTarget} onClose={() => setEditTarget(null)} title="트레이더 수정">
