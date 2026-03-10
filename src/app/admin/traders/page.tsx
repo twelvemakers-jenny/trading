@@ -41,18 +41,16 @@ export default function TradersPage() {
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({})
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([])
   const [authLoading, setAuthLoading] = useState(false)
+  const [authActionTarget, setAuthActionTarget] = useState<AuthUser | null>(null)
+  const [authActionType, setAuthActionType] = useState<'confirm' | 'register' | null>(null)
+  const [authActionLoading, setAuthActionLoading] = useState(false)
+  const [authActionError, setAuthActionError] = useState('')
   const { data: traders = [], isLoading, refetch } = useTraders()
   const updateTrader = useUpdate<Record<string, unknown>>('traders', ['traders'])
   const deleteTrader = useDelete('traders', ['traders'])
 
-  useEffect(() => {
-    setAuthLoading(true)
-    fetch('/api/admin/users')
-      .then((res) => res.json())
-      .then((data) => setAuthUsers(data.users ?? []))
-      .catch(() => setAuthUsers([]))
-      .finally(() => setAuthLoading(false))
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchAuthUsers() }, [])
 
   const pendingTraders = traders.filter((t) => t.status === 'pending')
   const activeTraders = traders.filter((t) => t.status !== 'pending')
@@ -106,7 +104,60 @@ export default function TradersPage() {
 
   // 트레이더 테이블에 없는 Auth 유저 (미등록 회원)
   const traderAuthIds = new Set(traders.map((t) => t.auth_id))
-  const unmatchedAuthUsers = authUsers.filter((u) => !traderAuthIds.has(u.id))
+
+  const fetchAuthUsers = () => {
+    setAuthLoading(true)
+    fetch('/api/admin/users')
+      .then((res) => res.json())
+      .then((data) => setAuthUsers(data.users ?? []))
+      .catch(() => setAuthUsers([]))
+      .finally(() => setAuthLoading(false))
+  }
+
+  const handleConfirmEmail = async () => {
+    if (!authActionTarget) return
+    setAuthActionLoading(true)
+    setAuthActionError('')
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm_email', userId: authActionTarget.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAuthActionError(data.error); return }
+      setAuthActionTarget(null)
+      setAuthActionType(null)
+      fetchAuthUsers()
+    } catch { setAuthActionError('서버 오류') }
+    finally { setAuthActionLoading(false) }
+  }
+
+  const handleRegisterTrader = async (values: Record<string, string>) => {
+    if (!authActionTarget) return
+    setAuthActionLoading(true)
+    setAuthActionError('')
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register_trader',
+          userId: authActionTarget.id,
+          email: authActionTarget.email,
+          name: values.name,
+          role: values.role,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAuthActionError(data.error); return }
+      setAuthActionTarget(null)
+      setAuthActionType(null)
+      fetchAuthUsers()
+      refetch()
+    } catch { setAuthActionError('서버 오류') }
+    finally { setAuthActionLoading(false) }
+  }
 
   const columns = [
     { key: 'name', header: '이름' },
@@ -253,18 +304,18 @@ export default function TradersPage() {
           <DataTable
             columns={[
               { key: 'email', header: '이메일' },
-              { key: 'status', header: '상태',
+              { key: 'status', header: '트레이더 상태',
                 render: (row: AuthUser) => {
                   const isTrader = traderAuthIds.has(row.id)
                   return isTrader
-                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-success/20 text-success">트레이더 등록</span>
+                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-success/20 text-success">등록됨</span>
                     : <span className="text-xs px-2 py-0.5 rounded-full bg-warning/20 text-warning">미등록</span>
                 },
               },
               { key: 'email_confirmed_at', header: '이메일 인증',
                 render: (row: AuthUser) => row.email_confirmed_at
                   ? <span className="text-xs text-success">인증됨</span>
-                  : <span className="text-xs text-slate-500">미인증</span>,
+                  : <span className="text-xs text-warning">미인증</span>,
               },
               { key: 'last_sign_in_at', header: '마지막 로그인',
                 render: (row: AuthUser) => row.last_sign_in_at
@@ -273,6 +324,35 @@ export default function TradersPage() {
               },
               { key: 'created_at', header: '가입일',
                 render: (row: AuthUser) => new Date(row.created_at).toLocaleDateString('ko-KR'),
+              },
+              { key: 'actions', header: '액션',
+                render: (row: AuthUser) => {
+                  const isTrader = traderAuthIds.has(row.id)
+                  const isConfirmed = !!row.email_confirmed_at
+                  return (
+                    <div className="flex gap-2">
+                      {!isConfirmed && (
+                        <button
+                          onClick={() => { setAuthActionTarget(row); setAuthActionType('confirm'); setAuthActionError('') }}
+                          className="text-xs text-accent hover:text-accent-hover"
+                        >
+                          이메일 인증
+                        </button>
+                      )}
+                      {!isTrader && (
+                        <button
+                          onClick={() => { setAuthActionTarget(row); setAuthActionType('register'); setAuthActionError('') }}
+                          className="text-xs text-success hover:text-green-400"
+                        >
+                          트레이더 등록
+                        </button>
+                      )}
+                      {isTrader && isConfirmed && (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
+                    </div>
+                  )
+                },
               },
             ]}
             data={authUsers}
@@ -293,6 +373,64 @@ export default function TradersPage() {
           onSubmit={handleCreate}
           submitLabel="생성"
           isLoading={createLoading}
+        />
+      </Modal>
+
+      {/* 이메일 인증 확인 모달 */}
+      <Modal
+        isOpen={authActionType === 'confirm' && !!authActionTarget}
+        onClose={() => { setAuthActionTarget(null); setAuthActionType(null) }}
+        title="이메일 인증 처리"
+      >
+        {authActionError && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+            {authActionError}
+          </div>
+        )}
+        <p className="text-sm text-foreground mb-2">
+          <span className="font-mono text-accent">{authActionTarget?.email}</span> 의 이메일을 인증 처리하시겠습니까?
+        </p>
+        <p className="text-xs text-muted mb-6">인증 처리 후 해당 회원이 로그인할 수 있게 됩니다.</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={() => { setAuthActionTarget(null); setAuthActionType(null) }}
+            className="px-4 py-2 text-sm text-slate-400 hover:text-foreground transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleConfirmEmail}
+            disabled={authActionLoading}
+            className="px-4 py-2 text-sm font-medium bg-accent/20 text-accent hover:bg-accent/30 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {authActionLoading ? '처리 중...' : '인증 확인'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* 트레이더 등록 모달 */}
+      <Modal
+        isOpen={authActionType === 'register' && !!authActionTarget}
+        onClose={() => { setAuthActionTarget(null); setAuthActionType(null) }}
+        title="트레이더 등록"
+      >
+        {authActionError && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+            {authActionError}
+          </div>
+        )}
+        <div className="mb-5 p-3 rounded-lg bg-card-border/10 border border-card-border/30">
+          <p className="text-xs text-slate-500 mb-1">회원 이메일</p>
+          <p className="text-sm text-foreground font-mono">{authActionTarget?.email}</p>
+        </div>
+        <DynamicForm
+          fields={[
+            { key: 'name', label: '트레이더명', type: 'text', required: true },
+            { key: 'role', label: '역할', type: 'select', required: true, options: ['trader', 'head_trader'] },
+          ]}
+          onSubmit={handleRegisterTrader}
+          submitLabel="등록"
+          isLoading={authActionLoading}
         />
       </Modal>
 
