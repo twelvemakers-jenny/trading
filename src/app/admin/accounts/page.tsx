@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Modal } from '@/components/ui/modal'
 import { KycAccountForm, SECTIONS, type KycFormData } from '@/components/forms/kyc-account-form'
 import { useAccounts, useTraders, useInsert, useUpdate, useDelete } from '@/lib/hooks/use-data'
+import { exportToExcel } from '@/lib/export-excel'
 import type { Account } from '@/types/database'
 
 export default function AccountsPage() {
@@ -119,12 +120,36 @@ export default function AccountsPage() {
     ? SECTIONS.flatMap((s) => s.fields)
     : SECTIONS.find((s) => s.title === activeSection)?.fields ?? []
 
+  const handleExport = () => {
+    const allFields = SECTIONS.flatMap((s) => s.fields)
+    const rows = sorted.map((account) => {
+      const meta = account.metadata as Record<string, string>
+      const traderName = traders.find((t) => t.id === account.trader_id)?.name ?? ''
+      const row: Record<string, unknown> = { traderName }
+      for (const f of allFields) {
+        row[f.key] = meta[f.key] ?? ''
+      }
+      return row
+    })
+    exportToExcel(
+      rows,
+      [
+        { header: '트레이더', key: 'traderName' },
+        ...allFields.map((f) => ({ header: f.label, key: f.key })),
+      ],
+      '계정원장',
+    )
+  }
+
   return (
     <DashboardLayout>
       <PageHeader
         title="계정원장 (KYC 관리)"
         description={`총 ${accounts.length}개 계정`}
-        action={{ label: '계정 추가', onClick: () => setIsModalOpen(true) }}
+        actions={[
+          { label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary' },
+          { label: '계정 추가', onClick: () => setIsModalOpen(true) },
+        ]}
       />
 
       {/* 검색 + 섹션 필터 */}

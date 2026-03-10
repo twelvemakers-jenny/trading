@@ -11,6 +11,7 @@ import { InlineDollar, InlineUSDT, InlineDate, InlineSelect } from '@/components
 import { usePositions, useTraders, useAccounts, useInsert, useUpdate, useDelete } from '@/lib/hooks/use-data'
 import { useAuthStore } from '@/lib/store'
 import { formatUSDT, formatUSDTInt, formatDollar } from '@/lib/calculations'
+import { exportToExcel } from '@/lib/export-excel'
 import { PnLChart } from '@/components/dashboard/pnl-chart'
 import { groupPositions } from '@/lib/position-groups'
 import type { Position, Trader, Account, FieldDefinition } from '@/types/database'
@@ -215,12 +216,63 @@ export default function HistoryPage() {
   const mergedCellClass = (align: string) =>
     `px-3 py-3 text-sm align-middle ${align === 'right' ? 'text-right font-mono' : 'text-left'}`
 
+  const handleExport = () => {
+    const rows = positions.map((pos) => {
+      const meta = pos.metadata as Record<string, string> | undefined
+      const traderName = traders.find((t) => t.id === pos.trader_id)?.name ?? ''
+      const account = accounts.find((a) => a.id === pos.account_id)
+      const accountMeta = account?.metadata as Record<string, string> | undefined
+      const accountLabel = accountMeta?.gmail || account?.alias || ''
+      const exchange = meta?.exchange || account?.exchange || ''
+      const pnl = pos.closing_balance_usd && pos.deposit_usd
+        ? (parseFloat(pos.closing_balance_usd) - parseFloat(pos.deposit_usd)).toFixed(2)
+        : ''
+      return {
+        flowType: meta?.flow_type ?? '',
+        traderName,
+        account: accountLabel,
+        exchange,
+        deposit: pos.deposit_usd ?? '',
+        reward: meta?.reward ?? '',
+        entryDate: pos.entry_date ?? '',
+        direction: pos.direction ?? '',
+        leverage: pos.leverage ?? '',
+        tp: meta?.tp ?? '',
+        sl: meta?.sl ?? '',
+        exitDate: pos.exit_date ?? '',
+        closingBalance: pos.closing_balance_usd ?? '',
+        pnl,
+        issueNote: pos.issue_note ?? '',
+      }
+    })
+    exportToExcel(rows, [
+      { header: '자금 흐름', key: 'flowType' },
+      { header: '트레이더', key: 'traderName' },
+      { header: '계정', key: 'account' },
+      { header: '거래소', key: 'exchange' },
+      { header: '예치금 (USDT)', key: 'deposit' },
+      { header: 'Reward', key: 'reward' },
+      { header: '진입일', key: 'entryDate' },
+      { header: '방향', key: 'direction' },
+      { header: '레버리지', key: 'leverage' },
+      { header: 'TP', key: 'tp' },
+      { header: 'SL', key: 'sl' },
+      { header: '종료일', key: 'exitDate' },
+      { header: '종료자금 (USDT)', key: 'closingBalance' },
+      { header: 'P&L', key: 'pnl' },
+      { header: '이슈/메모', key: 'issueNote' },
+    ], '히스토리')
+  }
+
   return (
     <DashboardLayout>
       <PageHeader
         title="히스토리"
         description="종료된 포지션 아카이브"
-        action={{ label: '히스토리 추가', onClick: () => setIsModalOpen(true) }}
+        actions={[
+          { label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary' },
+          { label: '히스토리 추가', onClick: () => setIsModalOpen(true) },
+        ]}
       />
 
       <div className="mb-6">

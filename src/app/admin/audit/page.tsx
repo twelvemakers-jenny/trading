@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { useAuditTimeline, type AuditEventType } from '@/lib/hooks/use-audit-timeline'
 import { formatUSD } from '@/lib/calculations'
+import { exportToExcel } from '@/lib/export-excel'
 
 const TYPE_CONFIG: Record<AuditEventType, { label: string; color: string; bg: string }> = {
   allocation: { label: '배정', color: 'text-blue-400', bg: 'bg-blue-500/15' },
@@ -36,6 +37,7 @@ function formatDate(d: string) {
 export default function AuditPage() {
   const {
     events,
+    allEvents,
     summary,
     filters,
     setFilters,
@@ -61,9 +63,42 @@ export default function AuditPage() {
   const activeTraders = traders.filter((t) => t.role !== 'admin')
   const hasFilters = Object.values(filters).some((v) => v !== '')
 
+  const handleExport = () => {
+    const typeLabels: Record<string, string> = {
+      allocation: '배정', transfer: '이체',
+      position_open: '포지션 진입', position_close: '포지션 종료',
+    }
+    const rows = allEvents.map((e) => ({
+      date: formatDate(e.date),
+      type: typeLabels[e.type] ?? e.type,
+      flowType: e.flowType ? (FLOW_LABELS[e.flowType] ?? e.flowType) : '',
+      traderName: e.traderName,
+      exchange: e.exchange,
+      amount: e.amount,
+      pnl: e.pnl ?? '',
+      status: e.status,
+      memo: e.memo,
+    }))
+    exportToExcel(rows, [
+      { header: '날짜', key: 'date' },
+      { header: '유형', key: 'type' },
+      { header: '흐름', key: 'flowType' },
+      { header: '트레이더', key: 'traderName' },
+      { header: '거래소', key: 'exchange' },
+      { header: '금액', key: 'amount' },
+      { header: 'P&L', key: 'pnl' },
+      { header: '상태', key: 'status' },
+      { header: '메모', key: 'memo' },
+    ], '감사추적')
+  }
+
   return (
     <DashboardLayout>
-      <PageHeader title="감사 추적" description="전체 거래 활동 통합 타임라인" />
+      <PageHeader
+        title="감사 추적"
+        description="전체 거래 활동 통합 타임라인"
+        actions={[{ label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary' }]}
+      />
 
       {/* ── 필터 바 ── */}
       <div className="glass-card p-4 mb-4">
