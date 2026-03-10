@@ -139,12 +139,8 @@ interface NavItem {
   iconKey: IconKey
 }
 
-const adminOnlyNav: NavItem[] = [
-  { href: '/admin/traders', label: '트레이더 관리', iconKey: 'users' },
-  { href: '/admin/schema', label: '필드 설정', iconKey: 'settings' },
-]
-
-const managerNav: NavItem[] = [
+// ── Admin 전용 메뉴 ──
+const adminMainNav: NavItem[] = [
   { href: '/', label: '전체 현황판', iconKey: 'dashboard' },
   { href: '/admin/accounts', label: '계정원장', iconKey: 'bank' },
   { href: '/admin/allocations', label: '펀드 운용', iconKey: 'coins' },
@@ -154,23 +150,31 @@ const managerNav: NavItem[] = [
   { href: '/admin/audit', label: '감사 추적', iconKey: 'search' },
 ]
 
-const traderNav: NavItem[] = [
-  { href: '/', label: '내 대시보드', iconKey: 'dashboard' },
-  { href: '/trader/allocations', label: '내 펀드', iconKey: 'coins' },
-  { href: '/trader/positions', label: '내 포지션', iconKey: 'chart' },
-  { href: '/trader/transfers', label: '이체 내역', iconKey: 'transfer' },
+const adminSettingsNav: NavItem[] = [
+  { href: '/admin/traders', label: '트레이더 관리', iconKey: 'users' },
+  { href: '/admin/schema', label: '필드 설정', iconKey: 'settings' },
   { href: '/trader/exchanges', label: '거래소 정보', iconKey: 'exchange' },
   { href: '/trader/profile', label: '정보 수정', iconKey: 'profile' },
 ]
 
+// ── 일반 회원 (Trader / Head Trader) 메뉴 ──
+const memberMainNav: NavItem[] = [
+  { href: '/', label: '전체 현황판', iconKey: 'dashboard' },
+  { href: '/trader/allocations', label: '펀드 운용', iconKey: 'coins' },
+  { href: '/trader/transfers', label: '자금 이체', iconKey: 'transfer' },
+  { href: '/trader/positions', label: '내 포지션', iconKey: 'chart' },
+  { href: '/admin/history', label: '히스토리', iconKey: 'clipboard' },
+]
+
+const memberSubNav: NavItem[] = [
+  { href: '/trader/exchanges', label: '거래소 정보', iconKey: 'exchange' },
+  { href: '/admin/accounts', label: '계정원장', iconKey: 'bank' },
+  { href: '/trader/profile', label: '정보 수정', iconKey: 'profile' },
+  { href: '/admin/audit', label: '감사 추적', iconKey: 'search' },
+]
+
 const EXPANDED_W = 260
 const COLLAPSED_W = 68
-
-const DIVIDER_ITEM: NavItem & { href: '__divider__' } = {
-  href: '__divider__' as '__divider__',
-  label: '내 트레이딩',
-  iconKey: 'portfolio',
-}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -179,24 +183,16 @@ export function Sidebar() {
   const toggleSidebar = useAuthStore((s) => s.toggleSidebar)
 
   const isAdmin = trader?.role === 'admin'
-  const isHeadTrader = trader?.role === 'head_trader'
 
-  const headTraderOwnNav = traderNav.filter((n) => n.href !== '/')
-  const commonNav: NavItem[] = [
-    { href: '/trader/exchanges', label: '거래소 정보', iconKey: 'exchange' },
-    { href: '/trader/profile', label: '정보 수정', iconKey: 'profile' },
-  ]
-  const ADMIN_DIVIDER: NavItem & { href: '__divider__' } = {
+  const SETTINGS_DIVIDER: NavItem & { href: '__divider__' } = {
     href: '__divider__' as '__divider__',
-    label: '관리 설정',
+    label: isAdmin ? '관리 설정' : '기타',
     iconKey: 'settings',
   }
 
-  const finalNav: (NavItem | typeof DIVIDER_ITEM)[] = isAdmin
-    ? [...managerNav, ADMIN_DIVIDER, ...adminOnlyNav, ...commonNav]
-    : isHeadTrader
-      ? [managerNav[0], ...managerNav.slice(1), DIVIDER_ITEM, ...headTraderOwnNav]
-      : traderNav
+  const finalNav: (NavItem | typeof SETTINGS_DIVIDER)[] = isAdmin
+    ? [...adminMainNav, SETTINGS_DIVIDER, ...adminSettingsNav]
+    : [...memberMainNav, SETTINGS_DIVIDER, ...memberSubNav]
 
   const handleLogout = async () => {
     const supabase = createClient()
