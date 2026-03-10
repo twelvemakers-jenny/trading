@@ -7,23 +7,12 @@ import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Modal } from '@/components/ui/modal'
 import { DynamicForm } from '@/components/forms/dynamic-form'
-import { useTraders, useInsert, useUpdate, useDelete } from '@/lib/hooks/use-data'
+import { useTraders, useUpdate, useDelete } from '@/lib/hooks/use-data'
 import type { Trader, FieldDefinition } from '@/types/database'
-
-const createFields: FieldDefinition[] = [
-  { key: 'email', label: '이메일', type: 'email', required: true },
-  { key: 'password', label: '비밀번호', type: 'text', required: true },
-  { key: 'name', label: '이름', type: 'text', required: true },
-  { key: 'phone', label: '연락처', type: 'phone', required: false },
-  { key: 'role', label: '역할', type: 'select', required: true, options: ['admin', 'head_trader', 'trader'] },
-]
 
 const coreFields: FieldDefinition[] = [
   { key: 'name', label: '트레이더명', type: 'text', required: true },
   { key: 'role', label: '역할', type: 'select', required: true, options: ['admin', 'head_trader', 'trader'] },
-]
-
-const statusFields: FieldDefinition[] = [
   { key: 'status', label: '상태', type: 'select', required: true, options: ['active', 'dormant', 'closed'] },
 ]
 
@@ -34,57 +23,32 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function TradersPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Trader | null>(null)
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({})
   const { data: traders = [], isLoading } = useTraders()
-  const insertTrader = useInsert<Record<string, unknown>>('traders', ['traders'])
   const updateTrader = useUpdate<Record<string, unknown>>('traders', ['traders'])
   const deleteTrader = useDelete('traders', ['traders'])
 
   const pendingTraders = traders.filter((t) => t.status === 'pending')
   const activeTraders = traders.filter((t) => t.status !== 'pending')
 
-  const [createLoading, setCreateLoading] = useState(false)
-  const [createError, setCreateError] = useState('')
-
-  const editFields = [...coreFields, ...statusFields]
-
-  const handleSubmit = async (values: Record<string, string>) => {
-    setCreateError('')
-    setCreateLoading(true)
-    try {
-      const res = await fetch('/api/admin/create-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setCreateError(data.error || '생성 실패')
-        return
-      }
-      setIsModalOpen(false)
-      // traders 목록 갱신
-      window.location.reload()
-    } catch {
-      setCreateError('서버 오류가 발생했습니다.')
-    } finally {
-      setCreateLoading(false)
-    }
-  }
-
   const handleEdit = (values: Record<string, string>) => {
     if (!editTarget) return
-    const { name, role, status, ...metadata } = values
+    const { name, role, status } = values
     updateTrader.mutate(
-      { id: editTarget.id, name, role, status, metadata },
+      { id: editTarget.id, name, role, status },
       { onSuccess: () => setEditTarget(null) }
     )
   }
 
   const columns = [
     { key: 'name', header: '이름' },
+    { key: 'email', header: '이메일',
+      render: (row: Trader) => {
+        const meta = row.metadata as Record<string, string> | undefined
+        return <span className="text-xs text-slate-400">{meta?.email ?? '-'}</span>
+      },
+    },
     { key: 'role', header: '역할',
       render: (row: Trader) => <StatusBadge status={row.role} />,
     },
@@ -122,8 +86,7 @@ export default function TradersPage() {
     <DashboardLayout>
       <PageHeader
         title="트레이더 관리"
-        description="트레이더 등록 및 관리"
-        action={{ label: '트레이더 추가', onClick: () => setIsModalOpen(true) }}
+        description="가입 신청을 승인하고 트레이더를 관리합니다"
       />
 
       {/* 가입 승인 대기 */}
@@ -143,11 +106,11 @@ export default function TradersPage() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{t.name}</p>
-                    <p className="text-xs text-muted">
-                      {meta.email} / {meta.phone} / {new Date(t.created_at).toLocaleDateString('ko-KR')} 신청
+                    <p className="text-xs text-slate-400">
+                      {meta?.email ?? '-'} / {meta?.phone ?? '-'} / {new Date(t.created_at).toLocaleDateString('ko-KR')} 신청
                     </p>
                     <p className="text-xs text-accent mt-1">
-                      신청 권한: {ROLE_LABELS[meta.requested_role] ?? ROLE_LABELS[t.role]}
+                      신청 권한: {ROLE_LABELS[meta?.requested_role] ?? ROLE_LABELS[t.role]}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -187,26 +150,26 @@ export default function TradersPage() {
         </div>
       )}
 
-      <DataTable columns={columns} data={activeTraders} isLoading={isLoading} />
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setCreateError('') }} title="트레이더 추가">
-        {createError && <p className="text-danger text-sm mb-3">{createError}</p>}
-        <DynamicForm
-          fields={createFields}
-          onSubmit={handleSubmit}
-          submitLabel="계정 생성"
-          isLoading={createLoading}
-        />
-      </Modal>
+      {pendingTraders.length === 0 && !isLoading && (
+        <div className="mb-6 glass-card p-4 text-center text-slate-500 text-sm">
+          대기 중인 가입 신청이 없습니다.
+        </div>
+      )}
 
+      <h3 className="text-sm font-semibold text-foreground mb-3">
+        등록된 트레이더 ({activeTraders.length}명)
+      </h3>
+      <DataTable columns={columns} data={activeTraders} isLoading={isLoading} />
+
+      {/* 수정 모달 */}
       <Modal isOpen={!!editTarget} onClose={() => setEditTarget(null)} title="트레이더 수정">
         {editTarget && (
           <DynamicForm
-            fields={editFields}
+            fields={coreFields}
             initialValues={{
               name: editTarget.name,
               role: editTarget.role,
               status: editTarget.status,
-              ...(editTarget.metadata as Record<string, string>),
             }}
             onSubmit={handleEdit}
             submitLabel="수정"
