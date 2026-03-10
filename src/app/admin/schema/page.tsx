@@ -110,7 +110,7 @@ function FundSettingsEditor({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">펀드명</label>
+          <label className="text-xs text-slate-400">펀드명</label>
           <input
             type="text"
             placeholder="Delta Trading Fund"
@@ -121,7 +121,7 @@ function FundSettingsEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">기본 통화</label>
+          <label className="text-xs text-slate-400">기본 통화</label>
           <select
             value={settings.base_currency}
             onChange={(e) => update({ base_currency: e.target.value })}
@@ -136,7 +136,7 @@ function FundSettingsEditor({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">운용 수수료 (%)</label>
+          <label className="text-xs text-slate-400">운용 수수료 (%)</label>
           <input
             type="text"
             placeholder="2.00"
@@ -144,11 +144,11 @@ function FundSettingsEditor({
             onChange={(e) => update({ management_fee_pct: e.target.value })}
             className="w-full px-3 py-2 bg-background border border-card-border rounded text-sm text-foreground"
           />
-          <p className="text-[10px] text-muted">연간 운용 자산 대비 수수료율</p>
+          <p className="text-[10px] text-slate-500">연간 운용 자산 대비 수수료율</p>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">성과 수수료 (%)</label>
+          <label className="text-xs text-slate-400">성과 수수료 (%)</label>
           <input
             type="text"
             placeholder="20.00"
@@ -156,7 +156,7 @@ function FundSettingsEditor({
             onChange={(e) => update({ performance_fee_pct: e.target.value })}
             className="w-full px-3 py-2 bg-background border border-card-border rounded text-sm text-foreground"
           />
-          <p className="text-[10px] text-muted">수익 발생 시 성과 보수율 (High-Water Mark 기준)</p>
+          <p className="text-[10px] text-slate-500">수익 발생 시 성과 보수율 (High-Water Mark 기준)</p>
         </div>
       </div>
     </div>
@@ -223,7 +223,7 @@ function RiskSettingsEditor({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">최대 손실 알림 (%)</label>
+          <label className="text-xs text-slate-400">최대 손실 알림 (%)</label>
           <input
             type="text"
             placeholder="10.00"
@@ -231,11 +231,11 @@ function RiskSettingsEditor({
             onChange={(e) => update({ max_drawdown_alert_pct: e.target.value })}
             className="w-full px-3 py-2 bg-background border border-card-border rounded text-sm text-foreground"
           />
-          <p className="text-[10px] text-muted">전체 자산 대비 손실이 이 비율을 초과하면 알림</p>
+          <p className="text-[10px] text-slate-500">전체 자산 대비 손실이 이 비율을 초과하면 알림</p>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">일일 손실 한도 (USD)</label>
+          <label className="text-xs text-slate-400">일일 손실 한도 (USD)</label>
           <input
             type="text"
             placeholder="5000"
@@ -243,11 +243,11 @@ function RiskSettingsEditor({
             onChange={(e) => update({ daily_loss_limit_usd: e.target.value })}
             className="w-full px-3 py-2 bg-background border border-card-border rounded text-sm text-foreground"
           />
-          <p className="text-[10px] text-muted">하루 최대 허용 손실 금액</p>
+          <p className="text-[10px] text-slate-500">하루 최대 허용 손실 금액</p>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">트레이더당 최대 배정 (USD)</label>
+          <label className="text-xs text-slate-400">트레이더당 최대 배정 (USD)</label>
           <input
             type="text"
             placeholder="50000"
@@ -255,11 +255,11 @@ function RiskSettingsEditor({
             onChange={(e) => update({ max_allocation_per_trader_usd: e.target.value })}
             className="w-full px-3 py-2 bg-background border border-card-border rounded text-sm text-foreground"
           />
-          <p className="text-[10px] text-muted">개별 트레이더에게 배정 가능한 최대 금액</p>
+          <p className="text-[10px] text-slate-500">개별 트레이더에게 배정 가능한 최대 금액</p>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-muted">포지션당 최대 금액 (USD)</label>
+          <label className="text-xs text-slate-400">포지션당 최대 금액 (USD)</label>
           <input
             type="text"
             placeholder="10000"
@@ -267,7 +267,7 @@ function RiskSettingsEditor({
             onChange={(e) => update({ max_position_size_usd: e.target.value })}
             className="w-full px-3 py-2 bg-background border border-card-border rounded text-sm text-foreground"
           />
-          <p className="text-[10px] text-muted">단일 포지션 최대 투입 금액</p>
+          <p className="text-[10px] text-slate-500">단일 포지션 최대 투입 금액</p>
         </div>
       </div>
     </div>
@@ -291,7 +291,7 @@ function LinkToggleRow({
       <button
         type="button"
         onClick={() => onChange(' ')}
-        className="flex items-center gap-1.5 text-xs text-muted hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-foreground transition-colors"
       >
         <span className="text-accent">+</span> {label} 추가
       </button>
@@ -300,7 +300,7 @@ function LinkToggleRow({
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-xs text-muted whitespace-nowrap">{label}</label>
+      <label className="text-xs text-slate-400 whitespace-nowrap">{label}</label>
       <input
         type="url"
         placeholder="https://..."
@@ -430,7 +430,7 @@ function ExchangeEditor({
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <label className="text-xs text-muted whitespace-nowrap">Rebate %</label>
+                <label className="text-xs text-slate-400 whitespace-nowrap">Rebate %</label>
                 <input
                   type="text"
                   placeholder="0.00"
@@ -440,7 +440,7 @@ function ExchangeEditor({
                 />
               </div>
               <div className="flex items-center gap-1.5">
-                <label className="text-xs text-muted whitespace-nowrap">Reward %</label>
+                <label className="text-xs text-slate-400 whitespace-nowrap">Reward %</label>
                 <input
                   type="text"
                   placeholder="0.00"
@@ -476,7 +476,7 @@ function ExchangeEditor({
           </div>
         ))}
         {exchanges.length === 0 && (
-          <p className="text-muted text-sm text-center py-4">
+          <p className="text-slate-500 text-sm text-center py-4">
             등록된 거래소가 없습니다.
           </p>
         )}
