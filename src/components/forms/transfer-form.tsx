@@ -142,7 +142,7 @@ export function TransferForm({
 
       {/* 거래소 A + 금액 A */}
       <div className="p-3 rounded-lg border border-card-border/50 bg-card-border/5 space-y-3">
-        <p className="text-xs font-semibold text-accent">거래소 A (Long)</p>
+        <p className="text-xs font-semibold text-accent">거래소 A</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-muted mb-1">거래소 <span className="text-danger">*</span></label>
@@ -169,26 +169,25 @@ export function TransferForm({
 
       {/* 거래소 B + 금액 B */}
       <div className="p-3 rounded-lg border border-card-border/50 bg-card-border/5 space-y-3">
-        <p className="text-xs font-semibold text-violet-400">거래소 B (Short)</p>
+        <p className="text-xs font-semibold text-violet-400">거래소 B</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-muted mb-1">거래소 <span className="text-danger">*</span></label>
-            <select value={exchangeB} onChange={(e) => setExchangeB(e.target.value)} className={inputClass} required>
-              <option value="">선택</option>
+            <label className="block text-xs text-muted mb-1">거래소</label>
+            <select value={exchangeB} onChange={(e) => setExchangeB(e.target.value)} className={inputClass}>
+              <option value="">선택 (선택사항)</option>
               {exchangeNames.map((ex) => (
                 <option key={ex} value={ex}>{ex}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-muted mb-1">이체 금액 (USDT) <span className="text-danger">*</span></label>
+            <label className="block text-xs text-muted mb-1">이체 금액 (USDT)</label>
             <input
               type="text"
               value={amountB}
               onChange={(e) => setAmountB(e.target.value)}
               className={inputClass}
               placeholder="0.00"
-              required
             />
           </div>
         </div>
