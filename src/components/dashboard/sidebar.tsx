@@ -111,6 +111,22 @@ const icons = {
       <path d="M2 8.5h14" />
     </Icon>
   ),
+  profile: (
+    <Icon>
+      <circle cx="9" cy="6" r="3" />
+      <path d="M3 16c0-3 2.7-5.5 6-5.5s6 2.5 6 5.5" />
+      <path d="M13 5l2 2-2 2" />
+    </Icon>
+  ),
+  exchange: (
+    <Icon>
+      <rect x="2" y="3" width="14" height="12" rx="1.5" />
+      <path d="M2 7h14" />
+      <path d="M6 10h2" />
+      <path d="M10 10h4" />
+      <path d="M6 12.5h2" />
+    </Icon>
+  ),
 } as const
 
 type IconKey = keyof typeof icons
@@ -143,6 +159,8 @@ const traderNav: NavItem[] = [
   { href: '/trader/allocations', label: '내 펀드', iconKey: 'coins' },
   { href: '/trader/positions', label: '내 포지션', iconKey: 'chart' },
   { href: '/trader/transfers', label: '이체 내역', iconKey: 'transfer' },
+  { href: '/trader/exchanges', label: '거래소 정보', iconKey: 'exchange' },
+  { href: '/trader/profile', label: '정보 수정', iconKey: 'profile' },
 ]
 
 const EXPANDED_W = 260
@@ -164,6 +182,10 @@ export function Sidebar() {
   const isHeadTrader = trader?.role === 'head_trader'
 
   const headTraderOwnNav = traderNav.filter((n) => n.href !== '/')
+  const commonNav: NavItem[] = [
+    { href: '/trader/exchanges', label: '거래소 정보', iconKey: 'exchange' },
+    { href: '/trader/profile', label: '정보 수정', iconKey: 'profile' },
+  ]
   const ADMIN_DIVIDER: NavItem & { href: '__divider__' } = {
     href: '__divider__' as '__divider__',
     label: '관리 설정',
@@ -171,7 +193,7 @@ export function Sidebar() {
   }
 
   const finalNav: (NavItem | typeof DIVIDER_ITEM)[] = isAdmin
-    ? [...managerNav, ADMIN_DIVIDER, ...adminOnlyNav]
+    ? [...managerNav, ADMIN_DIVIDER, ...adminOnlyNav, ...commonNav]
     : isHeadTrader
       ? [managerNav[0], ...managerNav.slice(1), DIVIDER_ITEM, ...headTraderOwnNav]
       : traderNav
