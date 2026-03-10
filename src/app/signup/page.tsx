@@ -21,7 +21,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [role, setRole] = useState<'trader' | 'admin'>('trader')
+  const [role] = useState<'trader'>('trader')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -57,13 +57,13 @@ export default function SignupPage() {
         return
       }
 
-      // 2. traders 테이블에 pending 상태로 등록
+      // 2. traders 테이블에 pending 상태로 등록 (역할은 admin이 승인 시 지정)
       const { error: insertError } = await supabase.from('traders').insert({
         auth_id: authData.user.id,
         name,
-        role,
+        role: 'trader',
         status: 'pending',
-        metadata: { phone, email, requested_role: role },
+        metadata: { phone, email },
       })
 
       if (insertError) {
@@ -168,26 +168,6 @@ export default function SignupPage() {
                          transition-colors"
               placeholder="홍길동"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm text-muted mb-1.5">신청 권한</label>
-            <div className="flex gap-3">
-              {([['trader', 'Trader'], ['admin', 'Admin']] as const).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setRole(value)}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border
-                    ${role === value
-                      ? 'bg-accent border-accent text-white'
-                      : 'bg-background border-card-border text-muted hover:text-foreground'
-                    }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div>

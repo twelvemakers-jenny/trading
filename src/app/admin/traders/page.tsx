@@ -109,9 +109,7 @@ export default function TradersPage() {
                     <p className="text-xs text-slate-400">
                       {meta?.email ?? '-'} / {meta?.phone ?? '-'} / {new Date(t.created_at).toLocaleDateString('ko-KR')} 신청
                     </p>
-                    <p className="text-xs text-accent mt-1">
-                      신청 권한: {ROLE_LABELS[meta?.requested_role] ?? ROLE_LABELS[t.role]}
-                    </p>
+                    <p className="text-xs text-slate-500 mt-1">가입 승인 대기</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <select
