@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -217,12 +216,7 @@ export function AdminDashboard() {
   return (
     <div className="space-y-3">
       {/* ── 헤더 ── */}
-      <motion.div
-        className="flex items-center justify-between mb-2"
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
-      >
+      <div className="flex items-center justify-between mb-2 bento-animate">
         <div>
           <h2 className="text-xl font-bold text-foreground">전체 현황판</h2>
           <p className="text-xs text-muted mt-0.5">Delta-Neutral Trading Overview</p>
@@ -231,7 +225,7 @@ export function AdminDashboard() {
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[10px] uppercase tracking-[0.15em] text-emerald-400 font-medium">LIVE</span>
         </div>
-      </motion.div>
+      </div>
 
       {/* ══════════════════════════════════════════
           BENTO GRID: 12-column system
@@ -415,11 +409,9 @@ export function AdminDashboard() {
           )}
         </BentoCard>
 
-        <motion.div
-          className="col-span-12 md:col-span-8 glass-bento p-5 flex flex-col"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 12 * 0.06, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
+        <div
+          className="col-span-12 md:col-span-8 glass-bento p-5 flex flex-col bento-animate"
+          style={{ animationDelay: `${12 * 0.06}s` }}
         >
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -482,7 +474,7 @@ export function AdminDashboard() {
               </span>
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* ── R6: 이체 트렌드 (12col) ── */}
         {transferTrend.length > 0 && (
@@ -506,7 +498,7 @@ export function AdminDashboard() {
   )
 }
 
-// ── 벤토 카드 컴포넌트 (Framer Motion) ──
+// ── 벤토 카드 컴포넌트 (CSS 애니메이션 — 한 번만 재생) ──
 function BentoCard({
   className,
   label,
@@ -521,21 +513,15 @@ function BentoCard({
   index?: number
 }) {
   return (
-    <motion.div
-      className={`glass-bento p-5 ${className ?? ''}`}
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.5,
-        delay: index * 0.06,
-        ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
-      }}
+    <div
+      className={`glass-bento p-5 bento-animate ${className ?? ''}`}
+      style={{ animationDelay: `${index * 0.06}s` }}
     >
       <div className="mb-3">
         <h3 className="text-[10px] uppercase tracking-[0.15em] text-muted font-medium">{label}</h3>
         {sub && <p className="text-[9px] text-muted/60 mt-0.5">{sub}</p>}
       </div>
       {children}
-    </motion.div>
+    </div>
   )
 }
