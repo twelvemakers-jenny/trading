@@ -22,8 +22,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="glass-card relative w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto
+                      bg-[#0e0b1e]/95 backdrop-blur-xl rounded-3xl border border-white/[0.08]
+                      shadow-[0_16px_64px_rgba(0,0,0,0.6),0_0_32px_rgba(99,102,241,0.06)]">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button onClick={onClose} className="text-muted hover:text-foreground text-xl">
