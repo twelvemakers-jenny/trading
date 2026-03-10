@@ -7,16 +7,16 @@ import { useSystemSchema, useUpdate, useInsert, type ExchangeConfig } from '@/li
 import type { FundSettings, RiskSettings } from '@/types/database'
 
 const DEFAULT_EXCHANGES: ExchangeConfig[] = [
-  { name: 'Bitget', color: '#00c8b5', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'WOO X', color: '#5b9cf6', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Biconomy', color: '#7b61ff', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Picol', color: '#e91e63', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Jucom', color: '#ff9800', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Tapbit', color: '#f7931a', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Digifinex', color: '#2b6def', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'OrangeX', color: '#ff5722', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'MEXC', color: '#2196f3', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Huobi', color: '#009688', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Bitget', color: '#00c8b5', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'WOO X', color: '#5b9cf6', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Biconomy', color: '#7b61ff', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Picol', color: '#e91e63', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Jucom', color: '#ff9800', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Tapbit', color: '#f7931a', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Digifinex', color: '#2b6def', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'OrangeX', color: '#ff5722', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'MEXC', color: '#2196f3', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Huobi', color: '#009688', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
 ]
 
 const DEFAULT_FUND_SETTINGS: FundSettings = {
@@ -274,6 +274,62 @@ function RiskSettingsEditor({
   )
 }
 
+// ── URL 토글 행 (버튼으로 추가/제거) ──
+function LinkToggleRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const isVisible = value !== undefined && value !== null && value !== ''
+
+  if (!isVisible) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(' ')}
+        className="flex items-center gap-1.5 text-xs text-muted hover:text-foreground transition-colors"
+      >
+        <span className="text-accent">+</span> {label} 추가
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-xs text-muted whitespace-nowrap">{label}</label>
+      <input
+        type="url"
+        placeholder="https://..."
+        value={value.trim()}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 px-3 py-1.5 bg-background border border-card-border rounded text-sm text-foreground"
+        autoFocus
+      />
+      {value.trim() && (
+        <a
+          href={value.trim()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-accent hover:text-accent-hover whitespace-nowrap"
+        >
+          열기
+        </a>
+      )}
+      <button
+        type="button"
+        onClick={() => onChange('')}
+        className="text-xs text-danger hover:text-red-400 whitespace-nowrap"
+      >
+        제거
+      </button>
+    </div>
+  )
+}
+
 // ── 거래소 관리 에디터 ──
 function ExchangeEditor({
   schema,
@@ -298,7 +354,7 @@ function ExchangeEditor({
   const addExchange = () => {
     setExchanges((prev) => [
       ...prev,
-      { name: '', color: '#6b7280', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+      { name: '', color: '#6b7280', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
     ])
     setSynced(false)
   }
@@ -401,47 +457,22 @@ function ExchangeEditor({
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted whitespace-nowrap">이벤트 페이지</label>
-              <input
-                type="url"
-                placeholder="https://..."
-                value={ex.event_url}
-                onChange={(e) => updateExchange(i, { event_url: e.target.value })}
-                className="flex-1 px-3 py-1.5 bg-background border border-card-border rounded text-sm text-foreground"
-              />
-              {ex.event_url && (
-                <a
-                  href={ex.event_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-accent hover:text-accent-hover whitespace-nowrap"
-                >
-                  열기
-                </a>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted whitespace-nowrap">어드민 페이지</label>
-              <input
-                type="url"
-                placeholder="https://..."
-                value={ex.admin_url}
-                onChange={(e) => updateExchange(i, { admin_url: e.target.value })}
-                className="flex-1 px-3 py-1.5 bg-background border border-card-border rounded text-sm text-foreground"
-              />
-              {ex.admin_url && (
-                <a
-                  href={ex.admin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-accent hover:text-accent-hover whitespace-nowrap"
-                >
-                  열기
-                </a>
-              )}
-            </div>
+            {/* URL 링크 토글 영역 */}
+            <LinkToggleRow
+              label="레퍼럴 링크"
+              value={ex.referral_url}
+              onChange={(v) => updateExchange(i, { referral_url: v })}
+            />
+            <LinkToggleRow
+              label="이벤트 페이지"
+              value={ex.event_url}
+              onChange={(v) => updateExchange(i, { event_url: v })}
+            />
+            <LinkToggleRow
+              label="어드민 페이지"
+              value={ex.admin_url}
+              onChange={(v) => updateExchange(i, { admin_url: v })}
+            />
           </div>
         ))}
         {exchanges.length === 0 && (

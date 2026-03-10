@@ -138,21 +138,22 @@ export interface ExchangeConfig {
   color: string
   rebate_pct: string
   reward_pct: string
+  referral_url: string
   event_url: string
   admin_url: string
 }
 
 const DEFAULT_EXCHANGES: ExchangeConfig[] = [
-  { name: 'Bitget', color: '#00c8b5', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'WOO X', color: '#5b9cf6', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Biconomy', color: '#7b61ff', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Picol', color: '#e91e63', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Jucom', color: '#ff9800', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Tapbit', color: '#f7931a', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Digifinex', color: '#2b6def', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'OrangeX', color: '#ff5722', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'MEXC', color: '#2196f3', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
-  { name: 'Huobi', color: '#009688', rebate_pct: '', reward_pct: '', event_url: '', admin_url: '' },
+  { name: 'Bitget', color: '#00c8b5', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'WOO X', color: '#5b9cf6', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Biconomy', color: '#7b61ff', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Picol', color: '#e91e63', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Jucom', color: '#ff9800', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Tapbit', color: '#f7931a', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Digifinex', color: '#2b6def', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'OrangeX', color: '#ff5722', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'MEXC', color: '#2196f3', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
+  { name: 'Huobi', color: '#009688', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
 ]
 
 export function useExchanges() {
