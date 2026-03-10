@@ -164,8 +164,14 @@ export function Sidebar() {
   const isHeadTrader = trader?.role === 'head_trader'
 
   const headTraderOwnNav = traderNav.filter((n) => n.href !== '/')
+  const ADMIN_DIVIDER: NavItem & { href: '__divider__' } = {
+    href: '__divider__' as '__divider__',
+    label: '관리 설정',
+    iconKey: 'settings',
+  }
+
   const finalNav: (NavItem | typeof DIVIDER_ITEM)[] = isAdmin
-    ? [managerNav[0], ...adminOnlyNav, ...managerNav.slice(1)]
+    ? [...managerNav, ADMIN_DIVIDER, ...adminOnlyNav]
     : isHeadTrader
       ? [managerNav[0], ...managerNav.slice(1), DIVIDER_ITEM, ...headTraderOwnNav]
       : traderNav
