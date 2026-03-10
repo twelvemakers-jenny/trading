@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Modal } from '@/components/ui/modal'
 import { DynamicForm } from '@/components/forms/dynamic-form'
 import { useTraders, useUpdate, useDelete } from '@/lib/hooks/use-data'
+import { useAuthStore } from '@/lib/store'
 import type { Trader, FieldDefinition } from '@/types/database'
 
 interface AuthUser {
@@ -32,6 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function TradersPage() {
+  const trader = useAuthStore((s) => s.trader)
   const [editTarget, setEditTarget] = useState<Trader | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
@@ -146,6 +148,19 @@ export default function TradersPage() {
       ),
     },
   ]
+
+  if (trader?.role !== 'admin') {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-8 text-center">
+            <p className="text-foreground font-medium mb-2">접근 권한이 없습니다</p>
+            <p className="text-muted text-sm">이 페이지는 Admin만 접근할 수 있습니다.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>

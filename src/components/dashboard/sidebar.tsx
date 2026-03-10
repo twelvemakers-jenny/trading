@@ -165,9 +165,9 @@ export function Sidebar() {
 
   const headTraderOwnNav = traderNav.filter((n) => n.href !== '/')
   const finalNav: (NavItem | typeof DIVIDER_ITEM)[] = isAdmin
-    ? [managerNav[0], adminOnlyNav[0], ...managerNav.slice(1), adminOnlyNav[1]]
+    ? [managerNav[0], ...adminOnlyNav, ...managerNav.slice(1)]
     : isHeadTrader
-      ? [managerNav[0], adminOnlyNav[0], ...managerNav.slice(1), DIVIDER_ITEM, ...headTraderOwnNav]
+      ? [managerNav[0], ...managerNav.slice(1), DIVIDER_ITEM, ...headTraderOwnNav]
       : traderNav
 
   const handleLogout = async () => {
