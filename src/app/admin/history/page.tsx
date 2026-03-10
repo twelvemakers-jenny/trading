@@ -1,22 +1,107 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { PageHeader } from '@/components/ui/page-header'
+import { Modal } from '@/components/ui/modal'
+import { DynamicForm } from '@/components/forms/dynamic-form'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { FlowBadge } from '@/components/ui/flow-badge'
-import { usePositions, useTraders, useAccounts } from '@/lib/hooks/use-data'
+import { FlowBadge, getFlowOptions } from '@/components/ui/flow-badge'
+import { InlineDollar, InlineUSDT, InlineDate, InlineSelect } from '@/components/ui/inline-edit'
+import { usePositions, useTraders, useAccounts, useInsert, useUpdate, useDelete } from '@/lib/hooks/use-data'
+import { useAuthStore } from '@/lib/store'
 import { formatUSDT, formatUSDTInt, formatDollar } from '@/lib/calculations'
 import { PnLChart } from '@/components/dashboard/pnl-chart'
 import { groupPositions } from '@/lib/position-groups'
-import type { Position, Trader, Account } from '@/types/database'
+import type { Position, Trader, Account, FieldDefinition } from '@/types/database'
+
+const leverages = ['10x', '20x', '25x', '30x', '35x', '40x', '45x', '50x']
 
 export default function HistoryPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const currentUser = useAuthStore((s) => s.trader)
   const { data: positions = [], isLoading } = usePositions(undefined, 'closed')
   const { data: traders = [] } = useTraders()
   const { data: accounts = [] } = useAccounts()
+  const updatePosition = useUpdate<Record<string, unknown>>('positions', ['positions'])
+  const deletePosition = useDelete('positions', ['positions'])
+  const insertPosition = useInsert<Record<string, unknown>>('positions', ['positions'])
 
   const positionGroups = useMemo(() => groupPositions(positions), [positions])
+
+  // ── 인라인 업데이트 핸들러 ──
+  const updateField = useCallback((pos: Position, field: string, value: unknown) => {
+    updatePosition.mutate({ id: pos.id, [field]: value })
+  }, [updatePosition])
+
+  const updateMeta = useCallback((pos: Position, key: string, value: unknown) => {
+    const prevMeta = pos.metadata as Record<string, unknown>
+    updatePosition.mutate({ id: pos.id, metadata: { ...prevMeta, [key]: value } })
+  }, [updatePosition])
+
+  // ── 신규 등록 필드 ──
+  const fields: FieldDefinition[] = [
+    { key: 'flow_type', label: '자금 흐름', type: 'select', required: true,
+      options: getFlowOptions(currentUser?.role) },
+    { key: 'trader_id', label: '트레이더', type: 'select', required: true,
+      options: traders.filter((t) => t.role !== 'admin' && t.status === 'active').map((t) => `${t.id}::${t.name}`) },
+    { key: 'account_id', label: '계정', type: 'select', required: true,
+      options: accounts.filter((a) => a.trader_id).map((a) => {
+        const meta = a.metadata as Record<string, string>
+        const email = meta?.gmail || a.alias
+        return `${a.id}::${email} (${a.exchange})`
+      }) },
+    { key: 'deposit_usd', label: '예치금 (USDT)', type: 'number', required: true },
+    { key: 'reward', label: 'Reward (USDT)', type: 'number', required: false },
+    { key: 'direction', label: '방향', type: 'select', required: true, options: ['long', 'short'] },
+    { key: 'leverage', label: '레버리지', type: 'select', required: true, options: leverages },
+    { key: 'tp', label: 'TP (Take Profit)', type: 'number', required: false },
+    { key: 'sl', label: 'SL (Stop Loss)', type: 'number', required: false },
+    { key: 'entry_date', label: '진입 날짜', type: 'date', required: false },
+    { key: 'exit_date', label: '종료 날짜', type: 'date', required: false },
+    { key: 'closing_balance_usd', label: '종료자금 (USDT)', type: 'number', required: false },
+    { key: 'issue_note', label: '이슈 / 특이점', type: 'text', required: false },
+  ]
+
+  const handleSubmit = (values: Record<string, string>) => {
+    const flow_type = values.flow_type.split('::')[0]
+    insertPosition.mutate(
+      {
+        trader_id: values.trader_id.split('::')[0],
+        account_id: values.account_id.split('::')[0],
+        deposit_usd: parseFloat(values.deposit_usd),
+        direction: values.direction,
+        leverage: values.leverage,
+        entry_date: values.entry_date || null,
+        exit_date: values.exit_date || null,
+        closing_balance_usd: values.closing_balance_usd ? parseFloat(values.closing_balance_usd) : null,
+        status: 'closed',
+        issue_note: values.issue_note || null,
+        metadata: {
+          flow_type,
+          reward: values.reward || null,
+          tp: values.tp || null,
+          sl: values.sl || null,
+        },
+      },
+      { onSuccess: () => setIsModalOpen(false) }
+    )
+  }
+
+  const handleDelete = (pos: Position) => {
+    const traderName = traders.find((t) => t.id === pos.trader_id)?.name ?? '-'
+    if (window.confirm(`"${traderName}" 의 히스토리를 삭제하시겠습니까?`)) {
+      deletePosition.mutate(pos.id)
+    }
+  }
+
+  const handleDeleteGroup = (group: ReturnType<typeof groupPositions>[number]) => {
+    const first = group.positions[0]
+    const traderName = traders.find((t) => t.id === first.trader_id)?.name ?? '-'
+    if (window.confirm(`"${traderName}" 의 델타뉴트럴 히스토리를 모두 삭제하시겠습니까?`)) {
+      group.positions.forEach((p) => deletePosition.mutate(p.id))
+    }
+  }
 
   // ── 헬퍼 ──
   const renderFlow = (pos: Position) => {
@@ -55,8 +140,58 @@ export default function HistoryPage() {
     return <span className={n >= 0 ? 'pnl-positive' : 'pnl-negative'}>{n >= 0 ? '+' : ''}{roi}%</span>
   }
 
+  // ── 인라인 편집 셀 렌더러 ──
+  const renderEditableCells = (pos: Position) => {
+    const meta = pos.metadata as Record<string, string> | undefined
+    return (
+      <>
+        <td className={tdClass('right')}>
+          <InlineUSDT value={meta?.reward} integer onSave={(v) => updateMeta(pos, 'reward', v)} />
+        </td>
+        <td className={tdClass('left')}>
+          <InlineDate value={pos.entry_date} onSave={(v) => updateField(pos, 'entry_date', v)} />
+        </td>
+        <td className={tdClass('left')}>
+          <InlineSelect
+            value={pos.direction || 'long'}
+            options={['long', 'short']}
+            onSave={(v) => updateField(pos, 'direction', v)}
+            renderLabel={(v) => (
+              <span className={v === 'long' ? 'text-emerald-400' : 'text-rose-400'}>
+                {v.toUpperCase()}
+              </span>
+            )}
+          />
+        </td>
+        <td className={tdClass('left')}>
+          <InlineSelect
+            value={pos.leverage || '10x'}
+            options={leverages}
+            onSave={(v) => updateField(pos, 'leverage', v)}
+          />
+        </td>
+        <td className={tdClass('right')}>
+          <InlineDollar value={meta?.tp} onSave={(v) => updateMeta(pos, 'tp', v)} />
+        </td>
+        <td className={tdClass('right')}>
+          <InlineDollar value={meta?.sl} onSave={(v) => updateMeta(pos, 'sl', v)} />
+        </td>
+        <td className={tdClass('left')}>
+          <InlineDate value={pos.exit_date} onSave={(v) => updateField(pos, 'exit_date', v)} />
+        </td>
+        <td className={tdClass('right')}>
+          <InlineUSDT
+            value={pos.closing_balance_usd}
+            integer
+            onSave={(v) => updateField(pos, 'closing_balance_usd', v ? parseFloat(v) : null)}
+          />
+        </td>
+      </>
+    )
+  }
+
   const headers = [
-    { label: '흐름', align: 'left' },
+    { label: '흐름', align: 'left', compact: true },
     { label: '트레이더', align: 'left' },
     { label: '계정', align: 'left' },
     { label: '거래소', align: 'left' },
@@ -71,37 +206,22 @@ export default function HistoryPage() {
     { label: '종료자금', align: 'right' },
     { label: 'P&L', align: 'right' },
     { label: 'ROI', align: 'right' },
+    { label: '', align: 'left' },
   ]
 
-  const thClass = (align: string) =>
-    `px-3 py-3 text-xs font-medium text-muted uppercase tracking-wider whitespace-nowrap ${align === 'right' ? 'text-right' : 'text-left'}`
-
-  const tdClass = (align: string) =>
-    `px-3 py-2 text-sm whitespace-nowrap ${align === 'right' ? 'text-right font-mono' : 'text-left'}`
+  const thClass = (align: string, compact?: boolean) =>
+    `${compact ? 'px-1.5 max-w-[40px]' : 'px-3'} py-3 text-xs font-medium text-muted uppercase tracking-wider whitespace-nowrap ${align === 'right' ? 'text-right' : 'text-left'}`
 
   const mergedCellClass = (align: string) =>
-    `px-3 py-2 text-sm align-middle ${align === 'right' ? 'text-right font-mono' : 'text-left'}`
-
-  /** 독립 컬럼 렌더 (읽기전용) */
-  const renderIndependentCells = (pos: Position) => {
-    const meta = pos.metadata as Record<string, string> | undefined
-    return (
-      <>
-        <td className={tdClass('right')}>{meta?.reward ? formatUSDTInt(meta.reward) : '-'}</td>
-        <td className={tdClass('left')}>{pos.entry_date ?? '-'}</td>
-        <td className={tdClass('left')}><StatusBadge status={pos.direction} /></td>
-        <td className={tdClass('left')}>{pos.leverage}</td>
-        <td className={tdClass('right')}>{formatDollar(meta?.tp)}</td>
-        <td className={tdClass('right')}>{formatDollar(meta?.sl)}</td>
-        <td className={tdClass('left')}>{pos.exit_date ?? '-'}</td>
-        <td className={tdClass('right')}>{pos.closing_balance_usd ? formatUSDTInt(pos.closing_balance_usd) : '-'}</td>
-      </>
-    )
-  }
+    `px-3 py-3 text-sm align-middle ${align === 'right' ? 'text-right font-mono' : 'text-left'}`
 
   return (
     <DashboardLayout>
-      <PageHeader title="히스토리" description="종료된 포지션 아카이브" />
+      <PageHeader
+        title="히스토리"
+        description="종료된 포지션 아카이브"
+        action={{ label: '히스토리 추가', onClick: () => setIsModalOpen(true) }}
+      />
 
       <div className="mb-6">
         <PnLChart positions={positions} />
@@ -118,7 +238,7 @@ export default function HistoryPage() {
               <thead>
                 <tr className="border-b border-card-border">
                   {headers.map((h, i) => (
-                    <th key={i} className={thClass(h.align)}>{h.label}</th>
+                    <th key={i} className={thClass(h.align, (h as { compact?: boolean }).compact)}>{h.label}</th>
                   ))}
                 </tr>
               </thead>
@@ -134,14 +254,17 @@ export default function HistoryPage() {
                         key={pos.id}
                         className={`border-b border-card-border/50 ${gi % 2 !== 0 ? 'bg-card-border/5' : ''}`}
                       >
-                        <td className={tdClass('left')}>{renderFlow(pos)}</td>
+                        <td className="px-1.5 py-2 max-w-[40px] overflow-hidden">{renderFlow(pos)}</td>
                         <td className={tdClass('left')}>{renderTrader(pos)}</td>
                         <td className={tdClass('left')}>{renderAccount(pos)}</td>
                         <td className={tdClass('left')}>{renderExchange(pos)}</td>
                         <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
-                        {renderIndependentCells(pos)}
+                        {renderEditableCells(pos)}
                         <td className={tdClass('right')}>{renderPnl(group.combinedPnl)}</td>
                         <td className={tdClass('right')}>{renderRoi(group.combinedRoi)}</td>
+                        <td className={tdClass('left')}>
+                          <button onClick={() => handleDelete(pos)} className="text-xs text-danger hover:text-red-400">삭제</button>
+                        </td>
                       </tr>
                     )
                   }
@@ -158,7 +281,7 @@ export default function HistoryPage() {
                       >
                         {isFirst && (
                           <>
-                            <td className={mergedCellClass('left')} rowSpan={rowCount}>{renderFlow(first)}</td>
+                            <td className="px-1.5 py-3 max-w-[40px] overflow-hidden align-middle" rowSpan={rowCount}>{renderFlow(first)}</td>
                             <td className={mergedCellClass('left')} rowSpan={rowCount}>{renderTrader(first)}</td>
                             <td className={mergedCellClass('left')} rowSpan={rowCount}>{renderAccount(first)}</td>
                           </>
@@ -175,11 +298,19 @@ export default function HistoryPage() {
                           </div>
                         </td>
                         <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
-                        {renderIndependentCells(pos)}
+                        {renderEditableCells(pos)}
                         {isFirst && (
                           <>
                             <td className={mergedCellClass('right')} rowSpan={rowCount}>{renderPnl(group.combinedPnl)}</td>
                             <td className={mergedCellClass('right')} rowSpan={rowCount}>{renderRoi(group.combinedRoi)}</td>
+                            <td className={mergedCellClass('left')} rowSpan={rowCount}>
+                              <button
+                                onClick={() => handleDeleteGroup(group)}
+                                className="text-xs text-danger hover:text-red-400"
+                              >
+                                삭제
+                              </button>
+                            </td>
                           </>
                         )}
                       </tr>
@@ -191,6 +322,19 @@ export default function HistoryPage() {
           </div>
         </div>
       )}
+
+      {/* 히스토리 추가 모달 */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="히스토리 추가">
+        <DynamicForm
+          fields={fields}
+          onSubmit={handleSubmit}
+          submitLabel="등록"
+          isLoading={insertPosition.isPending}
+        />
+      </Modal>
     </DashboardLayout>
   )
 }
+
+const tdClass = (align: string) =>
+  `px-3 py-2 text-sm whitespace-nowrap ${align === 'right' ? 'text-right font-mono' : 'text-left'}`
