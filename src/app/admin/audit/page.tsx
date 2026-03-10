@@ -97,7 +97,7 @@ export default function AuditPage() {
       <PageHeader
         title="감사 추적"
         description="전체 거래 활동 통합 타임라인"
-        actions={[{ label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary' }]}
+        actions={[{ label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary', confirm: '엑셀 파일을 다운로드 하시겠습니까?' }]}
       />
 
       {/* ── 필터 바 ── */}

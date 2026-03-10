@@ -270,7 +270,7 @@ export default function HistoryPage() {
         title="히스토리"
         description="종료된 포지션 아카이브"
         actions={[
-          { label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary' },
+          { label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary', confirm: '엑셀 파일을 다운로드 하시겠습니까?' },
           { label: '히스토리 추가', onClick: () => setIsModalOpen(true) },
         ]}
       />

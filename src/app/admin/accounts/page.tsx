@@ -147,7 +147,7 @@ export default function AccountsPage() {
         title="계정원장 (KYC 관리)"
         description={`총 ${accounts.length}개 계정`}
         actions={[
-          { label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary' },
+          { label: '엑셀 다운로드', onClick: handleExport, variant: 'secondary', confirm: '엑셀 파일을 다운로드 하시겠습니까?' },
           { label: '계정 추가', onClick: () => setIsModalOpen(true) },
         ]}
       />

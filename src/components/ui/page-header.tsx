@@ -2,6 +2,7 @@ interface ActionDef {
   label: string
   onClick: () => void
   variant?: 'primary' | 'secondary'
+  confirm?: string
 }
 
 interface PageHeaderProps {
@@ -25,10 +26,16 @@ export function PageHeader({ title, description, action, actions }: PageHeaderPr
           {allActions.map((a) => (
             <button
               key={a.label}
-              onClick={a.onClick}
+              onClick={() => {
+                if (a.confirm) {
+                  if (window.confirm(a.confirm)) a.onClick()
+                } else {
+                  a.onClick()
+                }
+              }}
               className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
                 a.variant === 'secondary'
-                  ? 'bg-card-border/40 hover:bg-card-border/60 text-foreground'
+                  ? 'bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-600/30'
                   : 'bg-accent hover:bg-accent-hover text-white'
               }`}
             >
