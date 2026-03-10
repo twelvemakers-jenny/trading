@@ -163,19 +163,28 @@ export default function TradersPage() {
 
       {/* 수정 모달 */}
       <Modal isOpen={!!editTarget} onClose={() => setEditTarget(null)} title="트레이더 수정">
-        {editTarget && (
-          <DynamicForm
-            fields={coreFields}
-            initialValues={{
-              name: editTarget.name,
-              role: editTarget.role,
-              status: editTarget.status,
-            }}
-            onSubmit={handleEdit}
-            submitLabel="수정"
-            isLoading={updateTrader.isPending}
-          />
-        )}
+        {editTarget && (() => {
+          const meta = editTarget.metadata as Record<string, string> | undefined
+          return (
+            <>
+              <div className="mb-5 p-3 rounded-lg bg-card-border/10 border border-card-border/30">
+                <p className="text-xs text-slate-500 mb-1">ID (Email)</p>
+                <p className="text-sm text-foreground font-mono">{meta?.email ?? '-'}</p>
+              </div>
+              <DynamicForm
+                fields={coreFields}
+                initialValues={{
+                  name: editTarget.name,
+                  role: editTarget.role,
+                  status: editTarget.status,
+                }}
+                onSubmit={handleEdit}
+                submitLabel="수정"
+                isLoading={updateTrader.isPending}
+              />
+            </>
+          )
+        })()}
       </Modal>
     </DashboardLayout>
   )
