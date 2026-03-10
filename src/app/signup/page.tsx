@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
 const ALLOWED_DOMAINS = ['aegis.ventures', 'gmail.com']
 
@@ -21,7 +20,6 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [role] = useState<'trader'>('trader')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -39,43 +37,21 @@ export default function SignupPage() {
 
     setLoading(true)
     try {
-      const supabase = createClient()
-
-      // 1. Supabase Auth 회원가입
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, phone }),
       })
+      const data = await res.json()
 
-      if (authError) {
-        setError(authError.message)
+      if (!res.ok) {
+        setError(data.error || '가입 신청 실패')
         return
       }
 
-      if (!authData.user) {
-        setError('회원가입 처리 중 오류가 발생했습니다.')
-        return
-      }
-
-      // 2. traders 테이블에 pending 상태로 등록 (역할은 admin이 승인 시 지정)
-      const { error: insertError } = await supabase.from('traders').insert({
-        auth_id: authData.user.id,
-        name,
-        role: 'trader',
-        status: 'pending',
-        metadata: { phone, email },
-      })
-
-      if (insertError) {
-        setError(`프로필 등록 실패: ${insertError.message}`)
-        return
-      }
-
-      // 3. 로그아웃 (승인 전까지 접근 불가)
-      await supabase.auth.signOut()
       setSuccess(true)
     } catch {
-      setError('회원가입 중 오류가 발생했습니다.')
+      setError('서버 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
