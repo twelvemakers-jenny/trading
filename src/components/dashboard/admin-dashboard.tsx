@@ -8,6 +8,7 @@ import {
 } from 'recharts'
 import { useTraders, usePositions, useAllocations, useAccounts, useTransfers, useExchanges } from '@/lib/hooks/use-data'
 import { useTraderPnL } from '@/lib/hooks/use-trader-pnl'
+import { useFundSummary } from '@/lib/hooks/use-fund-summary'
 import { formatUSD } from '@/lib/calculations'
 
 const COLORS = ['#818cf8', '#a78bfa', '#60a5fa', '#c084fc', '#34d399', '#f472b6', '#22d3ee', '#fb923c', '#6366f1', '#e879f9']
@@ -44,76 +45,54 @@ export function AdminDashboard() {
     return acc?.exchange ?? '기타'
   }
 
-  // ── 핵심 지표 ──
+  // ── 핵심 지표 (공유 훅 기반) ──
+  const fundSummary = useFundSummary(allocations, traders, traderPnLMap)
+
   const metrics = useMemo(() => {
-    const activeAllocs = allocations.filter((a) => a.status === 'active')
-    let totalAUM = 0
-    const traderFundMap = new Map<string, number>()
-
-    for (const alloc of activeAllocs) {
-      const meta = alloc.metadata as Record<string, string> | undefined
-      const flow = meta?.flow_type ?? ''
-      const amount = parseFloat(alloc.amount_usd)
-
-      switch (flow) {
-        case 'company_to_head':
-          totalAUM += amount
-          break
-        case 'head_to_trader': {
-          const prev = traderFundMap.get(alloc.trader_id) ?? 0
-          traderFundMap.set(alloc.trader_id, prev + amount)
-          break
-        }
-        case 'head_to_company':
-          totalAUM -= amount
-          break
-        default:
-          if (!flow) {
-            totalAUM += amount
-            const prev = traderFundMap.get(alloc.trader_id) ?? 0
-            traderFundMap.set(alloc.trader_id, prev + amount)
-          }
-          break
-      }
-    }
-
-    let totalAllocated = 0
-    for (const [, v] of traderFundMap) totalAllocated += v
-
     const pnl = parseFloat(totalPnL)
-    const totalAssets = totalAUM + pnl
+    const totalAssets = fundSummary.totalAUM + pnl
     const totalOperating = activePositions.reduce(
       (sum, p) => sum + parseFloat(p.deposit_usd || '0'), 0
     )
 
+    // traderFundMap: traderList에서 추출 (기존 호환)
+    const traderFundMap = new Map<string, number>()
+    for (const t of fundSummary.traderList) {
+      traderFundMap.set(t.id, t.fund)
+    }
+
     return {
-      totalAssets, totalAUM, totalAllocated, totalOperating, totalPnL: pnl,
+      totalAssets,
+      totalAUM: fundSummary.totalAUM,
+      headFund: fundSummary.headFund,
+      totalAllocated: fundSummary.totalTraderFunds,
+      totalAdjusted: fundSummary.totalAdjusted,
+      totalOperating,
+      totalPnL: pnl,
       activeCount: activePositions.length,
       closedCount: closedPositions.length,
       traderCount: traders.filter((t) => t.role !== 'admin').length,
       traderFundMap,
     }
-  }, [allocations, totalPnL, activePositions, closedPositions, traders, accounts])
+  }, [fundSummary, totalPnL, activePositions, closedPositions, traders])
 
-  // ── 트레이더별 운용 현황 ──
+  // ── 트레이더별 운용 현황 (공유 훅 기반) ──
   const traderStats = useMemo(() => {
-    return traders
-      .filter((t) => t.role !== 'admin')
-      .map((t) => {
-        const baseFund = metrics.traderFundMap.get(t.id) ?? 0
-        const pnlData = traderPnLMap.get(t.id)
-        const pnl = pnlData ? parseFloat(pnlData.pnl) : 0
-        const allocatedFund = baseFund + pnl
-        const operatingFund = activePositions
-          .filter((p) => p.trader_id === t.id)
-          .reduce((sum, p) => sum + parseFloat(p.deposit_usd || '0'), 0)
-        const roi = pnlData ? parseFloat(pnlData.roi) : 0
-        const activeCount = activePositions.filter((p) => p.trader_id === t.id).length
-        const closedCount = pnlData?.closedCount ?? 0
-        return { id: t.id, name: t.name, role: t.role, allocatedFund, operatingFund, pnl, roi, activeCount, closedCount }
-      })
-      .sort((a, b) => b.allocatedFund - a.allocatedFund)
-  }, [traders, metrics.traderFundMap, traderPnLMap, activePositions])
+    return fundSummary.traderList.map((ft) => {
+      const operatingFund = activePositions
+        .filter((p) => p.trader_id === ft.id)
+        .reduce((sum, p) => sum + parseFloat(p.deposit_usd || '0'), 0)
+      const pnlData = traderPnLMap.get(ft.id)
+      const roi = pnlData ? parseFloat(pnlData.roi) : 0
+      const activeCount = activePositions.filter((p) => p.trader_id === ft.id).length
+      const closedCount = pnlData?.closedCount ?? 0
+      return {
+        id: ft.id, name: ft.name, email: ft.email, role: ft.role,
+        allocatedFund: ft.adjustedFund, baseFund: ft.fund, operatingFund,
+        pnl: ft.pnl, roi, activeCount, closedCount,
+      }
+    })
+  }, [fundSummary.traderList, traderPnLMap, activePositions])
 
   // ── 거래소별 운용 비중 ──
   const exchangeActiveData = useMemo(() => {
@@ -232,28 +211,35 @@ export function AdminDashboard() {
          ══════════════════════════════════════════ */}
       <div className="grid grid-cols-12 gap-3">
 
-        {/* ── R1: 5개 핵심 지표 카드 (각 col-span 변형) ── */}
-        <BentoCard className="col-span-6 md:col-span-3" label="Total AUM" index={0}>
+        {/* ── R1: 6개 핵심 지표 카드 ── */}
+        <BentoCard className="col-span-6 md:col-span-4 lg:col-span-2" label="Total AUM" index={0}>
           <p className="text-2xl font-bold font-mono text-foreground">{fmt(metrics.totalAssets)}</p>
           <p className="text-[10px] text-muted mt-1">펀드자산 + P&L</p>
         </BentoCard>
 
-        <BentoCard className="col-span-6 md:col-span-3" label="펀드자산 (AUM)" index={1}>
+        <BentoCard className="col-span-6 md:col-span-4 lg:col-span-2" label="회사 수령 자금" index={1}>
           <p className="text-2xl font-bold font-mono text-foreground">{fmt(metrics.totalAUM)}</p>
           <p className="text-[10px] text-muted mt-1">전체 운용자산</p>
         </BentoCard>
 
-        <BentoCard className="col-span-4 md:col-span-2" label="할당 펀드" index={2}>
-          <p className="text-xl font-bold font-mono text-indigo-300">{fmt(metrics.totalAllocated)}</p>
-          <p className="text-[10px] text-muted mt-1">{metrics.traderCount}명 배정</p>
+        <BentoCard className="col-span-6 md:col-span-4 lg:col-span-2" label="Head Fund" index={2}>
+          <p className="text-xl font-bold font-mono text-blue-400">{fmt(metrics.headFund)}</p>
+          <p className="text-[10px] text-muted mt-1">미분배 자금</p>
         </BentoCard>
 
-        <BentoCard className="col-span-4 md:col-span-2" label="운용 펀드" index={3}>
+        <BentoCard className="col-span-6 md:col-span-4 lg:col-span-2" label="트레이더 분배" index={3}>
+          <p className="text-xl font-bold font-mono text-indigo-300">{fmt(metrics.totalAllocated)}</p>
+          <p className="text-[10px] text-muted mt-1">
+            {metrics.traderCount}명 / P&L반영 {fmt(metrics.totalAdjusted)}
+          </p>
+        </BentoCard>
+
+        <BentoCard className="col-span-6 md:col-span-4 lg:col-span-2" label="운용 펀드" index={4}>
           <p className="text-xl font-bold font-mono text-purple-300">{fmt(metrics.totalOperating)}</p>
           <p className="text-[10px] text-muted mt-1">{metrics.activeCount}건 진행</p>
         </BentoCard>
 
-        <BentoCard className="col-span-4 md:col-span-2" label="누적 P&L" index={4}>
+        <BentoCard className="col-span-6 md:col-span-4 lg:col-span-2" label="누적 P&L" index={5}>
           <p className={`text-xl font-bold font-mono ${metrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {fmtSigned(metrics.totalPnL)}
           </p>
@@ -352,7 +338,10 @@ export function AdminDashboard() {
               <tbody>
                 {traderStats.map((t) => (
                   <tr key={t.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                    <td className="px-3 py-2.5 text-sm font-medium">{t.name}</td>
+                    <td className="px-3 py-2.5">
+                      <span className="text-sm font-medium">{t.name}</span>
+                      {t.email && <span className="block text-[10px] text-muted">{t.email}</span>}
+                    </td>
                     <td className="px-3 py-2.5 text-xs text-muted capitalize">{t.role === 'head_trader' ? 'Head' : 'Trader'}</td>
                     <td className="px-3 py-2.5 text-sm font-mono">{formatUSD(String(t.allocatedFund.toFixed(1)))}</td>
                     <td className="px-3 py-2.5 text-sm font-mono text-accent">{formatUSD(String(t.operatingFund.toFixed(1)))}</td>

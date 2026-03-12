@@ -117,9 +117,11 @@ export function TransferForm({
         <label className="block text-sm text-muted mb-1.5">트레이더 <span className="text-danger">*</span></label>
         <select value={traderId} onChange={(e) => handleTraderChange(e.target.value)} className={inputClass} required>
           <option value="">선택하세요</option>
-          {activeTraders.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
+          {activeTraders.map((t) => {
+            const meta = t.metadata as Record<string, string>
+            const email = meta?.email ?? ''
+            return <option key={t.id} value={t.id}>{t.name}{email ? ` (${email})` : ''}</option>
+          })}
         </select>
       </div>
 

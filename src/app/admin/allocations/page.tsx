@@ -9,6 +9,7 @@ import { DynamicForm } from '@/components/forms/dynamic-form'
 import { FlowBadge, FlowFilter, getFlowsByRole, getFlowOptions } from '@/components/ui/flow-badge'
 import { useAllocations, useTraders, useInsert, useUpdate, useDelete } from '@/lib/hooks/use-data'
 import { useTraderPnL } from '@/lib/hooks/use-trader-pnl'
+import { useFundSummary } from '@/lib/hooks/use-fund-summary'
 import { useAuthStore } from '@/lib/store'
 import { formatUSD } from '@/lib/calculations'
 import type { Allocation, Trader, FieldDefinition } from '@/types/database'
@@ -33,78 +34,8 @@ export default function AllocationsPage() {
   const flows = getFlowsByRole(currentUser?.role)
   const canEdit = currentUser?.role === 'admin' || currentUser?.role === 'head_trader'
 
-  // 흐름별 합계 계산
-  const fundSummary = useMemo(() => {
-    const active = allocations.filter((a) => a.status === 'active')
-
-    let totalAUM = 0
-    let headFund = 0
-    const traderFunds = new Map<string, { name: string; role: string; fund: number }>()
-
-    for (const alloc of active) {
-      const meta = alloc.metadata as Record<string, string> | undefined
-      const flow = meta?.flow_type ?? ''
-      const amount = parseFloat(alloc.amount_usd)
-      const trader = traders.find((t) => t.id === alloc.trader_id)
-
-      switch (flow) {
-        case 'company_to_head':
-          totalAUM += amount
-          headFund += amount
-          break
-        case 'head_to_trader': {
-          headFund -= amount
-          const existing = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', role: trader?.role ?? 'trader', fund: 0 }
-          existing.fund += amount
-          traderFunds.set(alloc.trader_id, existing)
-          break
-        }
-        case 'trader_to_exchange': {
-          const ex = traderFunds.get(alloc.trader_id)
-          if (ex) ex.fund -= amount
-          break
-        }
-        case 'exchange_to_trader': {
-          const ex2 = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', role: trader?.role ?? 'trader', fund: 0 }
-          ex2.fund += amount
-          traderFunds.set(alloc.trader_id, ex2)
-          break
-        }
-        case 'trader_to_head': {
-          const ex3 = traderFunds.get(alloc.trader_id)
-          if (ex3) ex3.fund -= amount
-          headFund += amount
-          break
-        }
-        case 'head_to_company':
-          headFund -= amount
-          totalAUM -= amount
-          break
-        default:
-          totalAUM += amount
-          {
-            const fallback = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', role: trader?.role ?? 'trader', fund: 0 }
-            fallback.fund += amount
-            traderFunds.set(alloc.trader_id, fallback)
-          }
-          break
-      }
-    }
-
-    const traderList = Array.from(traderFunds.entries())
-      .map(([id, data]) => {
-        const pnlData = traderPnLMap.get(id)
-        const pnl = pnlData ? parseFloat(pnlData.pnl) : 0
-        const roi = pnlData?.roi ?? '0.00'
-        return { id, ...data, pnl, roi, adjustedFund: data.fund + pnl }
-      })
-      .sort((a, b) => b.adjustedFund - a.adjustedFund)
-
-    const totalTraderFunds = traderList.reduce((sum, t) => sum + t.fund, 0)
-    const totalAdjusted = traderList.reduce((sum, t) => sum + t.adjustedFund, 0)
-
-    return { totalAUM, headFund, traderList, totalTraderFunds, totalAdjusted }
-  }, [allocations, traders, traderPnLMap])
+  // 흐름별 합계 계산 (공유 훅)
+  const fundSummary = useFundSummary(allocations, traders, traderPnLMap)
 
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -164,21 +95,40 @@ export default function AllocationsPage() {
     { key: 'flow_type', label: '자금 흐름', type: 'select', required: true,
       options: getFlowOptions(currentUser?.role) },
     { key: 'trader_id', label: '수취 트레이더', type: 'select', required: true,
-      options: traders.filter((t) => t.role !== 'admin' && t.status === 'active').map((t) => `${t.id}::${t.name}`) },
+      options: traders.filter((t) => t.role !== 'admin' && t.status === 'active').map((t) => {
+        const meta = t.metadata as Record<string, string>
+        const email = meta?.email ?? ''
+        return `${t.id}::${t.name}${email ? ` (${email})` : ''}`
+      }) },
     { key: 'amount_usd', label: '할당 금액 (USD)', type: 'number', required: true },
     { key: 'memo', label: '메모', type: 'text', required: false },
   ]
 
+  // 트레이더 ID로 수신자 정보 추출
+  const getRecipientMeta = (traderId: string) => {
+    const trader = traders.find((t) => t.id === traderId)
+    const meta = trader?.metadata as Record<string, string> | undefined
+    return {
+      recipient_name: trader?.name ?? '',
+      recipient_email: meta?.email ?? '',
+      recipient_role: trader?.role ?? '',
+    }
+  }
+
   const handleSubmit = (values: Record<string, string>) => {
-    const trader_id = values.trader_id.split('::')[0]
     const flow_type = values.flow_type.split('::')[0]
+    // company_to_head / head_to_company: 트레이더 개인과 무관 → 현재 사용자(Head) 사용
+    const isCompanyFlow = flow_type === 'company_to_head' || flow_type === 'head_to_company'
+    const trader_id = isCompanyFlow
+      ? (currentUser?.id ?? values.trader_id.split('::')[0])
+      : values.trader_id.split('::')[0]
     insertAllocation.mutate(
       {
         trader_id,
         allocated_by: currentUser?.id,
         amount_usd: parseFloat(values.amount_usd),
         memo: values.memo || null,
-        metadata: { flow_type },
+        metadata: { flow_type, ...getRecipientMeta(trader_id) },
       },
       { onSuccess: () => setIsModalOpen(false) }
     )
@@ -194,7 +144,7 @@ export default function AllocationsPage() {
         trader_id,
         amount_usd: parseFloat(values.amount_usd),
         memo: values.memo || null,
-        metadata: { flow_type },
+        metadata: { flow_type, ...getRecipientMeta(trader_id) },
       },
       { onSuccess: () => setEditTarget(null) }
     )
@@ -229,8 +179,20 @@ export default function AllocationsPage() {
         return meta?.flow_type ? <FlowBadge flow={meta.flow_type} /> : <span className="text-xs text-muted">-</span>
       },
     },
-    { key: 'trader_id', header: '트레이더',
-      render: (row: Allocation) => traders.find((t: Trader) => t.id === row.trader_id)?.name ?? <span className="text-muted text-xs">없음</span>,
+    { key: 'trader_id', header: '수신자',
+      render: (row: Allocation) => {
+        const trader = traders.find((t: Trader) => t.id === row.trader_id)
+        const allocMeta = row.metadata as Record<string, string> | undefined
+        // DB에 저장된 수신자 정보 (트레이더 삭제 시에도 확인 가능)
+        const name = trader?.name ?? allocMeta?.recipient_name ?? '미지정'
+        const email = (trader?.metadata as Record<string, string>)?.email ?? allocMeta?.recipient_email ?? ''
+        return (
+          <div>
+            <span className="text-sm font-medium">{name}</span>
+            {email && <span className="block text-[10px] text-muted">{email}</span>}
+          </div>
+        )
+      },
     },
     { key: 'amount_usd', header: '할당 금액', align: 'right' as const,
       render: (row: Allocation) => formatUSD(row.amount_usd),
@@ -275,40 +237,52 @@ export default function AllocationsPage() {
 
   const { totalAUM, headFund, traderList, totalTraderFunds, totalAdjusted } = fundSummary
   const totalPnLNum = parseFloat(totalRealizedPnL)
-  const allFunds = headFund + totalTraderFunds
+  const isHeadTrader = currentUser?.role === 'head_trader'
+  // 비율 계산: totalAUM (보유 펀드) 기준
+  const fundBase = totalAUM > 0 ? totalAUM : Math.max(headFund, 0) + Math.max(totalTraderFunds, 0)
+  const headFundPct = fundBase > 0 ? (Math.max(headFund, 0) / fundBase) * 100 : 0
 
   return (
     <DashboardLayout>
       <PageHeader
         title="펀드 운용"
-        description="자금 배분 및 운용 현황 트래킹"
+        description={isHeadTrader ? '회사 수령 자금 및 트레이더 분배 관리' : '자금 배분 및 운용 현황 트래킹'}
         action={canEdit ? { label: '자금 배분', onClick: () => setIsModalOpen(true) } : undefined}
       />
 
-      {/* 상단 4카드: 전체 AUM / Head Fund / Trader Funds / 실현 P&L */}
+      {/* 상단 4카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* 카드1: 보유 펀드 (= Head Fund = company_to_head 누적) */}
         <div className="glass-card p-5">
-          <p className="text-xs text-muted mb-1">전체 운용자산 (AUM)</p>
+          <p className="text-xs text-muted mb-1">보유 펀드 (Head Fund)</p>
           <p className="text-2xl font-bold text-foreground">{formatUSD(String(totalAUM.toFixed(1)))}</p>
-          <p className="text-xs text-muted mt-2">{traderList.length}명 운용 중</p>
+          <p className="text-xs text-muted mt-2">
+            {traderList.length > 0 ? `${traderList.length}명 배분 중` : 'Company → Head 이체 누적'}
+          </p>
         </div>
+        {/* 카드2: 운용 가능 잔액 (= 보유 펀드 - 트레이더 배분) */}
         <div className="glass-card p-5">
-          <p className="text-xs text-muted mb-1">Head Fund</p>
+          <p className="text-xs text-muted mb-1">{isHeadTrader ? '운용 가능 잔액' : 'Head Fund 잔액'}</p>
           <p className="text-2xl font-bold text-blue-400">{formatUSD(String(headFund.toFixed(1)))}</p>
           <div className="mt-2 h-2 bg-card-border/30 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-500 rounded-full transition-all"
-              style={{ width: allFunds > 0 ? `${(headFund / allFunds) * 100}%` : '0%' }}
+              style={{ width: totalAUM > 0 ? `${(headFund / totalAUM * 100)}%` : '0%' }}
             />
           </div>
+          {totalAUM > 0 && (
+            <p className="text-xs text-muted mt-1">보유 펀드의 {(headFund / totalAUM * 100).toFixed(1)}%</p>
+          )}
         </div>
+        {/* 카드3: 트레이더 배분 합계 */}
         <div className="glass-card p-5">
-          <p className="text-xs text-muted mb-1">Trader Funds (할당)</p>
+          <p className="text-xs text-muted mb-1">트레이더 배분</p>
           <p className="text-2xl font-bold text-emerald-400">{formatUSD(String(totalTraderFunds.toFixed(1)))}</p>
           <p className="text-xs text-muted mt-1">
             P&L 반영: <span className="font-semibold text-foreground">{formatUSD(String(totalAdjusted.toFixed(1)))}</span>
           </p>
         </div>
+        {/* 카드4: 누적 P&L */}
         <div className="glass-card p-5">
           <p className="text-xs text-muted mb-1">누적 실현 P&L</p>
           <p className={`text-2xl font-bold ${totalPnLNum >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -318,28 +292,30 @@ export default function AllocationsPage() {
         </div>
       </div>
 
-      {/* 자금 흐름도: Head Fund → Trader별 분배 바 */}
-      {traderList.length > 0 && (
+      {/* 자금 흐름도 */}
+      {allocations.length > 0 && (
         <div className="glass-card p-6 mb-6">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Trader별 Fund 분배</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">
+            {isHeadTrader ? '할당된 자금 현황' : 'Trader별 할당 자금 현황'}
+          </h3>
 
           {/* 전체 비율 바 */}
           <div className="w-full h-8 rounded-lg overflow-hidden flex mb-4">
-            {headFund > 0 && allFunds > 0 && (
+            {headFund > 0 && fundBase > 0 && (
               <div
-                style={{ width: `${(headFund / allFunds) * 100}%` }}
+                style={{ width: `${headFundPct}%` }}
                 className="h-full bg-blue-500/60 relative"
-                title={`Head Fund: ${formatUSD(String(headFund.toFixed(1)))}`}
+                title={`잔액: ${formatUSD(String(headFund.toFixed(1)))}`}
               >
-                {(headFund / allFunds) * 100 > 10 && (
+                {headFundPct > 10 && (
                   <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium">
-                    Head Fund
+                    잔액
                   </span>
                 )}
               </div>
             )}
             {traderList.map((ta, i) => {
-              const pct = allFunds > 0 ? (ta.fund / allFunds) * 100 : 0
+              const pct = fundBase > 0 ? (Math.max(ta.fund, 0) / fundBase) * 100 : 0
               if (pct < 0.5) return null
               return (
                 <div
@@ -359,6 +335,11 @@ export default function AllocationsPage() {
           </div>
 
           {/* 트레이더별 카드 */}
+          {traderList.length === 0 ? (
+            <p className="text-sm text-muted text-center py-4">
+              트레이더별 자금 할당 내역이 없습니다. &quot;Head Fund → Trader Fund&quot; 흐름으로 자금을 배분하세요.
+            </p>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {traderList.map((ta, i) => {
               const pct = totalTraderFunds > 0 ? (ta.fund / totalTraderFunds) * 100 : 0
@@ -368,7 +349,10 @@ export default function AllocationsPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-sm font-medium text-foreground">{ta.name}</span>
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-foreground">{ta.name}</span>
+                        {ta.email && <span className="block text-[10px] text-muted truncate">{ta.email}</span>}
+                      </div>
                     </div>
                     <span className="text-xs text-muted capitalize">{ta.role === 'head_trader' ? 'Head' : 'Trader'}</span>
                   </div>
@@ -394,6 +378,7 @@ export default function AllocationsPage() {
               )
             })}
           </div>
+          )}
         </div>
       )}
 

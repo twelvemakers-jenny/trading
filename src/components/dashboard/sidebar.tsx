@@ -183,6 +183,16 @@ export function Sidebar() {
   const toggleSidebar = useAuthStore((s) => s.toggleSidebar)
 
   const isAdmin = trader?.role === 'admin'
+  const isHeadTrader = trader?.role === 'head_trader'
+
+  // head_trader: 펀드 운용과 이체 원장은 admin 페이지(생성/편집 가능)로 라우팅
+  const headTraderMainNav: NavItem[] = [
+    { href: '/', label: '전체 현황판', iconKey: 'dashboard' },
+    { href: '/admin/allocations', label: '펀드 운용', iconKey: 'coins' },
+    { href: '/admin/transfers', label: '이체 원장', iconKey: 'transfer' },
+    { href: '/trader/positions', label: '내 포지션', iconKey: 'chart' },
+    { href: '/admin/history', label: '히스토리', iconKey: 'clipboard' },
+  ]
 
   const SETTINGS_DIVIDER: NavItem & { href: '__divider__' } = {
     href: '__divider__' as '__divider__',
@@ -190,9 +200,15 @@ export function Sidebar() {
     iconKey: 'settings',
   }
 
-  const finalNav: (NavItem | typeof SETTINGS_DIVIDER)[] = isAdmin
-    ? [...adminMainNav, SETTINGS_DIVIDER, ...adminSettingsNav]
-    : [...memberMainNav, SETTINGS_DIVIDER, ...memberSubNav]
+  const mainNav = isAdmin
+    ? adminMainNav
+    : isHeadTrader
+      ? headTraderMainNav
+      : memberMainNav
+
+  const subNav = isAdmin ? adminSettingsNav : memberSubNav
+
+  const finalNav: (NavItem | typeof SETTINGS_DIVIDER)[] = [...mainNav, SETTINGS_DIVIDER, ...subNav]
 
   const handleLogout = async () => {
     const supabase = createClient()

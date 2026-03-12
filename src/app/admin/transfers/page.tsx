@@ -6,13 +6,14 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { DataTable } from '@/components/ui/data-table'
 import { Modal } from '@/components/ui/modal'
-import { FlowBadge, FlowFilter, getFlowsByRole } from '@/components/ui/flow-badge'
+import { FlowBadge, FlowFilter, getAllFlows } from '@/components/ui/flow-badge'
 import { TransferForm, getAccountEmail, PURPOSE_LABELS } from '@/components/forms/transfer-form'
 import { useTransfers, useTraders, useAccounts, useAllocations, useInsert, useUpdate, useDelete, useExchanges } from '@/lib/hooks/use-data'
 import { useTraderPnL } from '@/lib/hooks/use-trader-pnl'
+import { useFundSummary } from '@/lib/hooks/use-fund-summary'
 import { useAuthStore } from '@/lib/store'
 import { formatUSD, formatUSDT } from '@/lib/calculations'
-import type { Transfer, Trader, Account, UserRole } from '@/types/database'
+import type { Transfer, Trader, Account } from '@/types/database'
 
 
 function ExchangeBadge({ name, colorMap }: { name: string; colorMap?: Record<string, string> }) {
@@ -41,7 +42,7 @@ export default function TransfersPage() {
   const insertTransfer = useInsert<Record<string, unknown>>('transfers', ['transfers', 'allocations'])
   const updateTransfer = useUpdate<Record<string, unknown>>('transfers', ['transfers'])
   const deleteTransfer = useDelete('transfers', ['transfers'])
-  const { totalPnL: totalRealizedPnL } = useTraderPnL()
+  const { traderPnLMap, totalPnL: totalRealizedPnL } = useTraderPnL()
   const { exchangeNames, exchangeColors } = useExchanges()
   const insertPosition = useInsert<Record<string, unknown>>('positions', ['positions'])
   const insertAllocation = useInsert<Record<string, unknown>>('allocations', ['allocations'])
@@ -93,28 +94,12 @@ export default function TransfersPage() {
     )
   }
 
-  const flows = getFlowsByRole(currentUser?.role)
+  const flows = getAllFlows()
 
-  // ── 상단 시각화: 역할별 펀드 계산 ──
+  // ── 상단 시각화: 공유 훅 기반 펀드 계산 ──
   const isAdmin = currentUser?.role === 'admin'
   const isHeadTrader = currentUser?.role === 'head_trader'
-
-  const calcFund = (traderFilter?: string) => {
-    const activeAlloc = allocations.filter((a) => {
-      if (a.status !== 'active') return false
-      if (traderFilter) return a.trader_id === traderFilter
-      return true
-    })
-    let fund = 0
-    for (const alloc of activeAlloc) {
-      const meta = alloc.metadata as Record<string, string> | undefined
-      const flow = meta?.flow_type ?? ''
-      const amount = parseFloat(alloc.amount_usd)
-      if (flow === 'head_to_trader' || flow === 'exchange_to_trader' || !flow) fund += amount
-      if (flow === 'trader_to_exchange' || flow === 'trader_to_head') fund -= amount
-    }
-    return fund
-  }
+  const { totalAUM, headFund, traderList, totalTraderFunds, totalAdjusted } = useFundSummary(allocations, traders, traderPnLMap)
 
   const calcExchangeSummary = (traderFilter?: string) => {
     const exchangeMap = new Map<string, number>()
@@ -150,31 +135,12 @@ export default function TransfersPage() {
       .slice(0, 4)
   }
 
-  const { totalFund, myFund, exchangeSummary } = useMemo(() => {
-    // Admin: 전체 합산
-    if (isAdmin) {
-      return {
-        totalFund: calcFund(),
-        myFund: null,
-        exchangeSummary: calcExchangeSummary(),
-      }
-    }
-    // Head Trader: 전체 합산 + 본인 펀드
-    if (isHeadTrader && currentUser?.id) {
-      return {
-        totalFund: calcFund(),
-        myFund: calcFund(currentUser.id),
-        exchangeSummary: calcExchangeSummary(currentUser.id),
-      }
-    }
-    // Trader (fallback): 본인만
-    return {
-      totalFund: null,
-      myFund: calcFund(currentUser?.id),
-      exchangeSummary: calcExchangeSummary(currentUser?.id),
-    }
+  const exchangeSummary = useMemo(() => {
+    if (isHeadTrader && currentUser?.id) return calcExchangeSummary(currentUser.id)
+    if (!isAdmin && currentUser?.id) return calcExchangeSummary(currentUser.id)
+    return calcExchangeSummary()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allocations, transfers, accounts, currentUser?.id, currentUser?.role])
+  }, [transfers, accounts, currentUser?.id, currentUser?.role])
 
   const filteredTransfers = useMemo(() => {
     let result = transfers
@@ -206,7 +172,18 @@ export default function TransfersPage() {
     },
     { key: 'transfer_date', header: '이체일' },
     { key: 'trader_id', header: '트레이더',
-      render: (row: Transfer) => traders.find((t: Trader) => t.id === row.trader_id)?.name ?? <span className="text-muted text-xs">없음</span>,
+      render: (row: Transfer) => {
+        const trader = traders.find((t: Trader) => t.id === row.trader_id)
+        if (!trader) return <span className="text-muted text-xs">없음</span>
+        const meta = trader.metadata as Record<string, string>
+        const email = meta?.email
+        return (
+          <div>
+            <span className="text-sm">{trader.name}</span>
+            {email && <span className="block text-[10px] text-muted">{email}</span>}
+          </div>
+        )
+      },
     },
     { key: 'account_id', header: '계정',
       render: (row: Transfer) => {
@@ -294,48 +271,89 @@ export default function TransfersPage() {
         action={{ label: '이체 등록', onClick: () => setIsModalOpen(true) }}
       />
 
-      {/* 상단 시각화 — 역할별 분기 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* 펀드 카드 영역 */}
-        <div className={`lg:col-span-1 ${isHeadTrader ? 'space-y-3' : ''}`}>
-          {/* Admin: 전체 분배 펀드 / Head Trader: 헤드 펀드 총액 */}
-          {totalFund !== null && (
-            <div className="glass-card p-6 flex flex-col justify-center">
-              <p className="text-xs text-muted mb-2">
-                {isAdmin ? '전체 분배 펀드' : '헤드 펀드 총액'}
-              </p>
-              <p className="text-3xl font-bold text-foreground">
-                {formatUSD(String(totalFund.toFixed(1)))}
-              </p>
-              {isAdmin && parseFloat(totalRealizedPnL) !== 0 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-muted">실현 P&L:</span>
-                  <span className={`text-sm font-semibold ${parseFloat(totalRealizedPnL) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {parseFloat(totalRealizedPnL) >= 0 ? '+' : ''}{formatUSD(totalRealizedPnL)}
-                  </span>
-                </div>
-              )}
-              <p className="text-xs text-muted mt-1">
-                {traders.filter((t) => t.role !== 'admin' && t.status === 'active').length}명 트레이더
-              </p>
-            </div>
+      {/* 상단 시각화: 펀드 현황 + 거래소 요약 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="glass-card p-5">
+          <p className="text-xs text-muted mb-1">{isHeadTrader ? '회사 수령 자금' : '전체 운용자산'}</p>
+          <p className="text-2xl font-bold text-foreground">{formatUSD(String(totalAUM.toFixed(1)))}</p>
+          <p className="text-xs text-muted mt-2">{traderList.length}명 분배</p>
+        </div>
+        <div className="glass-card p-5">
+          <p className="text-xs text-muted mb-1">{isHeadTrader ? '내 운용 자금' : 'Head Fund'}</p>
+          <p className="text-2xl font-bold text-blue-400">{formatUSD(String(headFund.toFixed(1)))}</p>
+          {totalAUM > 0 && (
+            <p className="text-xs text-muted mt-2">전체의 {(headFund / totalAUM * 100).toFixed(1)}%</p>
           )}
+        </div>
+        <div className="glass-card p-5">
+          <p className="text-xs text-muted mb-1">트레이더 분배 자금</p>
+          <p className="text-2xl font-bold text-emerald-400">{formatUSD(String(totalTraderFunds.toFixed(1)))}</p>
+          <p className="text-xs text-muted mt-1">
+            P&L 반영: <span className="font-semibold text-foreground">{formatUSD(String(totalAdjusted.toFixed(1)))}</span>
+          </p>
+        </div>
+        <div className="glass-card p-5">
+          <p className="text-xs text-muted mb-1">누적 실현 P&L</p>
+          <p className={`text-2xl font-bold ${parseFloat(totalRealizedPnL) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {parseFloat(totalRealizedPnL) >= 0 ? '+' : ''}{formatUSD(totalRealizedPnL)}
+          </p>
+          <p className="text-xs text-muted mt-1">종료 포지션 확정</p>
+        </div>
+      </div>
 
-          {/* Head Trader: 내 트레이더 펀드 / Trader: 내 분배 펀드 */}
-          {myFund !== null && (
-            <div className="glass-card p-6 flex flex-col justify-center">
-              <p className="text-xs text-muted mb-2">
-                {isHeadTrader ? '내 트레이더 펀드' : '내 분배 펀드'}
-              </p>
-              <p className={`font-bold text-foreground ${isHeadTrader ? 'text-2xl' : 'text-3xl'}`}>
-                {formatUSD(String(myFund.toFixed(1)))}
-              </p>
+      {/* 트레이더별 자금 현황 + 거래소 요약 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* 트레이더별 분배 현황 */}
+        <div className="lg:col-span-2">
+          {traderList.length > 0 ? (
+            <div className="glass-card p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-3">트레이더별 자금 현황</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {traderList.map((ta) => {
+                  const pnlColor = ta.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  return (
+                    <div key={ta.id} className="p-3 rounded-lg border border-card-border/50 bg-card-border/10">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-foreground">{ta.name}</span>
+                          {ta.email && <span className="block text-[10px] text-muted truncate">{ta.email}</span>}
+                        </div>
+                        <span className="text-[10px] text-muted capitalize shrink-0 ml-2">{ta.role === 'head_trader' ? 'Head' : 'Trader'}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-muted">할당</p>
+                          <p className="text-lg font-bold text-foreground">{formatUSD(String(ta.fund.toFixed(1)))}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted">P&L / ROI</p>
+                          <p className={`text-sm font-semibold ${ta.pnl !== 0 ? pnlColor : 'text-muted'}`}>
+                            {ta.pnl !== 0 ? `${ta.pnl >= 0 ? '+' : ''}${formatUSD(String(ta.pnl.toFixed(1)))}` : '-'}
+                            {ta.pnl !== 0 && <span className="text-[10px] text-muted ml-1">({ta.pnl >= 0 ? '+' : ''}{ta.roi}%)</span>}
+                          </p>
+                        </div>
+                      </div>
+                      {ta.pnl !== 0 && (
+                        <div className="mt-1.5 pt-1.5 border-t border-card-border/30 flex items-center justify-between">
+                          <span className="text-[10px] text-muted">잔액 (P&L 반영)</span>
+                          <span className="text-xs font-semibold text-foreground">{formatUSD(String(ta.adjustedFund.toFixed(1)))}</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="glass-card p-5 text-center text-muted text-sm">
+              분배된 자금이 없습니다.
             </div>
           )}
         </div>
 
         {/* 거래소별 요약 */}
-        <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="lg:col-span-1 grid grid-cols-1 gap-3 content-start">
+          <h3 className="text-sm font-semibold text-foreground">거래소별 이체 현황</h3>
           {exchangeSummary.map(({ exchange, amount }) => (
             <div key={exchange} className="glass-card p-4 relative overflow-hidden">
               <div
@@ -349,7 +367,7 @@ export default function TransfersPage() {
             </div>
           ))}
           {exchangeSummary.length === 0 && (
-            <div className="col-span-4 glass-card p-4 text-center text-muted text-sm">
+            <div className="glass-card p-4 text-center text-muted text-sm">
               이체 내역이 없습니다.
             </div>
           )}

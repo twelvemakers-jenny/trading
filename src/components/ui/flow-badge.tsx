@@ -27,18 +27,29 @@ export const FLOW_CONFIG: Record<FlowType, FlowConfig> = {
 }
 
 // 역할별 보이는 흐름
+// 펀드운용 페이지용 흐름 (거래소 이체는 이체원장에서 관리)
 const ADMIN_FLOWS: FlowType[] = [
-  'company_to_head', 'head_to_trader', 'trader_to_exchange',
-  'exchange_to_trader', 'trader_to_head', 'head_to_company',
+  'company_to_head', 'head_to_trader', 'trader_to_head', 'head_to_company',
 ]
 
 const TRADER_FLOWS: FlowType[] = [
-  'trader_to_exchange', 'exchange_to_trader', 'trader_to_head',
+  'head_to_trader', 'trader_to_head',
+]
+
+// 이체원장 등 전체 흐름이 필요한 곳에서 사용
+const ALL_FLOWS: FlowType[] = [
+  'company_to_head', 'head_to_trader', 'trader_to_exchange',
+  'exchange_to_trader', 'trader_to_head', 'head_to_company',
 ]
 
 export function getFlowsByRole(role: UserRole | undefined): FlowType[] {
   if (role === 'admin' || role === 'head_trader') return ADMIN_FLOWS
   return TRADER_FLOWS
+}
+
+// 이체원장 등에서 전체 흐름 타입 필요 시 사용
+export function getAllFlows(): FlowType[] {
+  return ALL_FLOWS
 }
 
 export function getFlowOptions(role: UserRole | undefined): string[] {
