@@ -147,7 +147,7 @@ export function TransferForm({
       {/* 거래소 A + 금액 A */}
       <div className="p-3 rounded-lg border border-card-border/50 bg-card-border/5 space-y-3">
         <p className="text-xs font-semibold text-accent">거래소 A</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-muted mb-1">거래소 <span className="text-danger">*</span></label>
             <select value={exchangeA} onChange={(e) => setExchangeA(e.target.value)} className={inputClass} required>
@@ -174,7 +174,7 @@ export function TransferForm({
       {/* 거래소 B + 금액 B */}
       <div className="p-3 rounded-lg border border-card-border/50 bg-card-border/5 space-y-3">
         <p className="text-xs font-semibold text-violet-400">거래소 B</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-muted mb-1">거래소</label>
             <select value={exchangeB} onChange={(e) => setExchangeB(e.target.value)} className={inputClass}>
