@@ -104,8 +104,8 @@ export function DynamicForm({
             <select
               value={values[field.key]}
               onChange={(e) => handleChange(field.key, e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-card-border rounded-lg
-                         text-foreground focus:outline-none focus:border-accent transition-colors"
+              className="w-full px-3 py-2 sm:px-4 sm:py-2.5 bg-background border border-card-border rounded-lg
+                         text-sm sm:text-base text-foreground focus:outline-none focus:border-accent transition-colors"
             >
               <option value="">선택하세요</option>
               {field.options?.map((opt) => {

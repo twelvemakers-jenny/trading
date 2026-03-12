@@ -96,8 +96,8 @@ export function TransferForm({
 
   const activeTraders = traders.filter((t) => t.role !== 'admin' && t.status === 'active')
 
-  const inputClass = `w-full px-4 py-2.5 bg-background border border-card-border rounded-lg
-    text-foreground focus:outline-none focus:border-accent transition-colors
+  const inputClass = `w-full px-3 py-2 sm:px-4 sm:py-2.5 bg-background border border-card-border rounded-lg
+    text-sm sm:text-base text-foreground focus:outline-none focus:border-accent transition-colors
     [&>option]:bg-[#1e293b] [&>option]:text-white`
 
   return (
