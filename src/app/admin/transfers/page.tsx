@@ -279,7 +279,7 @@ export default function TransfersPage() {
           <p className="text-xs text-muted mt-2">{traderList.length}명 분배</p>
         </div>
         <div className="glass-card p-5">
-          <p className="text-xs text-muted mb-1">{isHeadTrader ? '내 운용 자금' : 'Head Fund'}</p>
+          <p className="text-xs text-muted mb-1">{isHeadTrader ? '운용 가능 잔액' : 'Head Fund'}</p>
           <p className="text-2xl font-bold text-blue-400">{formatUSD(String(headFund.toFixed(1)))}</p>
           {totalAUM > 0 && (
             <p className="text-xs text-muted mt-2">전체의 {(headFund / totalAUM * 100).toFixed(1)}%</p>
