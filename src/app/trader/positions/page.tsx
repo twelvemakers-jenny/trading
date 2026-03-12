@@ -26,6 +26,7 @@ export default function TraderPositionsPage() {
 
   // ── 수정 폼 필드 ──
   const editFields: FieldDefinition[] = [
+    { key: 'direction', label: '방향', type: 'select', required: true, options: ['long', 'short'] },
     { key: 'closing_balance_usd', label: '종료 잔고 (USDT)', type: 'number', required: false },
     { key: 'exit_date', label: '종료 날짜', type: 'date', required: false },
     { key: 'leverage', label: '레버리지', type: 'select', required: false, options: leverages },
@@ -38,6 +39,7 @@ export default function TraderPositionsPage() {
     updatePosition.mutate(
       {
         id: editTarget.id,
+        direction: values.direction,
         closing_balance_usd: values.closing_balance_usd ? parseFloat(values.closing_balance_usd) : null,
         exit_date: values.exit_date || null,
         leverage: values.leverage || editTarget.leverage,
@@ -299,7 +301,8 @@ export default function TraderPositionsPage() {
             <DynamicForm
               fields={editFields}
               initialValues={{
-                closing_balance_usd: editTarget.closing_balance_usd ?? '',
+                direction: editTarget.direction ?? 'long',
+              closing_balance_usd: editTarget.closing_balance_usd ?? '',
                 exit_date: editTarget.exit_date ?? '',
                 leverage: editTarget.leverage ?? '',
                 entry_date: editTarget.entry_date ?? '',
