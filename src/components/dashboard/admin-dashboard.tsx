@@ -305,7 +305,91 @@ export function AdminDashboard() {
           </div>
         </BentoCard>
 
-        {/* ── R3: 누적 P&L 추이 (6col) + 월별 ROI (6col) ── */}
+        {/* ── R3: 거래소 운용 비중 (4col) + 거래소별 수익/손실 (8col) ── */}
+        <BentoCard className="col-span-12 md:col-span-4" label="거래소별 운용 비중" sub="진행 중인 포지션 기준" index={7}>
+          {exchangeActiveData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={exchangeActiveData} cx="50%" cy="50%" outerRadius={80} paddingAngle={2} dataKey="value"
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
+                  {exchangeActiveData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip {...tooltipStyle} formatter={(value) => [`$${Number(value).toLocaleString()}`, '']} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center text-muted text-sm">진행 중인 포지션 없음</div>
+          )}
+        </BentoCard>
+
+        <div
+          className="col-span-12 md:col-span-8 glass-bento p-5 flex flex-col bento-animate"
+          style={{ animationDelay: `${8 * 0.06}s` }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-[10px] uppercase tracking-[0.15em] text-muted font-medium">거래소별 수익/손실</h3>
+            </div>
+            <div className="flex rounded-xl overflow-hidden border border-white/[0.05]">
+              {(['day', 'week', 'month'] as PnlPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPnlPeriod(p)}
+                  className={`px-3 py-1 text-[11px] font-medium transition-all
+                    ${pnlPeriod === p
+                      ? 'bg-indigo-500/20 text-indigo-300 shadow-[0_0_8px_rgba(99,102,241,0.15)]'
+                      : 'text-muted hover:text-foreground hover:bg-white/[0.04]'}`}
+                >
+                  {PERIOD_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto max-h-[320px] -mx-1 px-1 space-y-2 flex-1">
+            {exchangePnlStats.length > 0 ? (
+              exchangePnlStats.map((e) => {
+                const roi = e.deposit > 0 ? (e.pnl / e.deposit * 100) : 0
+                const barWidth = Math.abs(e.pnl) / maxAbsPnl * 100
+                const dotColor = exchangeColors[e.exchange] ?? '#6b7280'
+                return (
+                  <div key={e.exchange} className="p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                        <span className="text-sm font-medium">{e.exchange}</span>
+                        <span className="text-[10px] text-muted">{e.count}건</span>
+                      </div>
+                      <span className={`text-sm font-mono font-semibold ${e.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {fmtSigned(Math.round(e.pnl))}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-1">
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${barWidth}%`, backgroundColor: e.pnl >= 0 ? GREEN : RED }} />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted">
+                      <span>투입금 ${e.deposit.toLocaleString()}</span>
+                      <span className={roi >= 0 ? 'text-emerald-400' : 'text-rose-400'}>ROI {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="flex items-center justify-center h-32 text-muted text-sm">{PERIOD_LABELS[pnlPeriod]} 종료된 포지션 없음</div>
+            )}
+          </div>
+
+          {exchangePnlStats.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between text-xs">
+              <span className="text-muted">{exchangePnlStats.length}개 거래소</span>
+              <span className={`font-mono font-semibold ${exchangePnlStats.reduce((s, e) => s + e.pnl, 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                합계 {fmtSigned(Math.round(exchangePnlStats.reduce((s, e) => s + e.pnl, 0)))}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* ── R4: 누적 P&L 추이 (6col) + 월별 ROI (6col) ── */}
         <BentoCard className="col-span-12 md:col-span-6" label="누적 P&L 추이" index={7}>
           {monthlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
@@ -381,91 +465,7 @@ export function AdminDashboard() {
           )}
         </BentoCard>
 
-        {/* ── R5: 거래소 운용 비중 (4col) + 거래소별 수익/손실 (8col) ── */}
-        <BentoCard className="col-span-12 md:col-span-4" label="거래소별 운용 비중" sub="진행 중인 포지션 기준" index={11}>
-          {exchangeActiveData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={exchangeActiveData} cx="50%" cy="50%" outerRadius={80} paddingAngle={2} dataKey="value"
-                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
-                  {exchangeActiveData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Pie>
-                <Tooltip {...tooltipStyle} formatter={(value) => [`$${Number(value).toLocaleString()}`, '']} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[220px] flex items-center justify-center text-muted text-sm">진행 중인 포지션 없음</div>
-          )}
-        </BentoCard>
-
-        <div
-          className="col-span-12 md:col-span-8 glass-bento p-5 flex flex-col bento-animate"
-          style={{ animationDelay: `${12 * 0.06}s` }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-[10px] uppercase tracking-[0.15em] text-muted font-medium">거래소별 수익/손실</h3>
-            </div>
-            <div className="flex rounded-xl overflow-hidden border border-white/[0.05]">
-              {(['day', 'week', 'month'] as PnlPeriod[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPnlPeriod(p)}
-                  className={`px-3 py-1 text-[11px] font-medium transition-all
-                    ${pnlPeriod === p
-                      ? 'bg-indigo-500/20 text-indigo-300 shadow-[0_0_8px_rgba(99,102,241,0.15)]'
-                      : 'text-muted hover:text-foreground hover:bg-white/[0.04]'}`}
-                >
-                  {PERIOD_LABELS[p]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="overflow-y-auto max-h-[320px] -mx-1 px-1 space-y-2 flex-1">
-            {exchangePnlStats.length > 0 ? (
-              exchangePnlStats.map((e) => {
-                const roi = e.deposit > 0 ? (e.pnl / e.deposit * 100) : 0
-                const barWidth = Math.abs(e.pnl) / maxAbsPnl * 100
-                const dotColor = exchangeColors[e.exchange] ?? '#6b7280'
-                return (
-                  <div key={e.exchange} className="p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                        <span className="text-sm font-medium">{e.exchange}</span>
-                        <span className="text-[10px] text-muted">{e.count}건</span>
-                      </div>
-                      <span className={`text-sm font-mono font-semibold ${e.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {fmtSigned(Math.round(e.pnl))}
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-1">
-                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${barWidth}%`, backgroundColor: e.pnl >= 0 ? GREEN : RED }} />
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-muted">
-                      <span>투입금 ${e.deposit.toLocaleString()}</span>
-                      <span className={roi >= 0 ? 'text-emerald-400' : 'text-rose-400'}>ROI {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                )
-              })
-            ) : (
-              <div className="flex items-center justify-center h-32 text-muted text-sm">{PERIOD_LABELS[pnlPeriod]} 종료된 포지션 없음</div>
-            )}
-          </div>
-
-          {exchangePnlStats.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between text-xs">
-              <span className="text-muted">{exchangePnlStats.length}개 거래소</span>
-              <span className={`font-mono font-semibold ${exchangePnlStats.reduce((s, e) => s + e.pnl, 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                합계 {fmtSigned(Math.round(exchangePnlStats.reduce((s, e) => s + e.pnl, 0)))}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* ── R6: 이체 트렌드 (12col) ── */}
+        {/* ── R7: 이체 트렌드 (12col) ── */}
         {transferTrend.length > 0 && (
           <BentoCard className="col-span-12" label="월별 자금 흐름 (이체)" index={13}>
             <ResponsiveContainer width="100%" height={220}>
