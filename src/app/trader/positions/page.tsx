@@ -1,29 +1,52 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import Decimal from 'decimal.js'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { PageHeader } from '@/components/ui/page-header'
-import { InlineUSDT, InlineDate } from '@/components/ui/inline-edit'
+import { Modal } from '@/components/ui/modal'
+import { DynamicForm } from '@/components/forms/dynamic-form'
 import { useAuthStore } from '@/lib/store'
 import { usePositions, useAccounts, useUpdate } from '@/lib/hooks/use-data'
 import { formatUSDTInt } from '@/lib/calculations'
 import { groupPositions } from '@/lib/position-groups'
 import type { PositionGroup } from '@/lib/position-groups'
-import type { Position, Account } from '@/types/database'
+import type { Position, Account, FieldDefinition } from '@/types/database'
+
+const leverages = ['10x', '20x', '25x', '30x', '35x', '40x', '45x', '50x']
 
 export default function TraderPositionsPage() {
   const trader = useAuthStore((s) => s.trader)
+  const [editTarget, setEditTarget] = useState<Position | null>(null)
   const { data: positions = [], isLoading } = usePositions(trader?.id, 'active')
   const { data: accounts = [] } = useAccounts(trader?.id)
   const updatePosition = useUpdate<Record<string, unknown>>('positions', ['positions'])
 
   const positionGroups = useMemo(() => groupPositions(positions), [positions])
 
-  // ── 인라인 업데이트 ──
-  const updateField = useCallback((pos: Position, field: string, value: unknown) => {
-    updatePosition.mutate({ id: pos.id, [field]: value })
-  }, [updatePosition])
+  // ── 수정 폼 필드 ──
+  const editFields: FieldDefinition[] = [
+    { key: 'closing_balance_usd', label: '종료 잔고 (USDT)', type: 'number', required: false },
+    { key: 'exit_date', label: '종료 날짜', type: 'date', required: false },
+    { key: 'leverage', label: '레버리지', type: 'select', required: false, options: leverages },
+    { key: 'entry_date', label: '진입 날짜', type: 'date', required: false },
+    { key: 'issue_note', label: '이슈 / 특이점', type: 'text', required: false },
+  ]
+
+  const handleEdit = (values: Record<string, string>) => {
+    if (!editTarget) return
+    updatePosition.mutate(
+      {
+        id: editTarget.id,
+        closing_balance_usd: values.closing_balance_usd ? parseFloat(values.closing_balance_usd) : null,
+        exit_date: values.exit_date || null,
+        leverage: values.leverage || editTarget.leverage,
+        entry_date: values.entry_date || null,
+        issue_note: values.issue_note || null,
+      },
+      { onSuccess: () => setEditTarget(null) }
+    )
+  }
 
   // ── 상태 변경 (종료 시 그룹 전체) ──
   const handleStatusChange = useCallback((group: PositionGroup, newStatus: string) => {
@@ -62,14 +85,11 @@ export default function TraderPositionsPage() {
     return email.includes('@') ? email.split('@')[0] : email
   }
 
-  // ── 편집 가능 셀 ──
-  const renderEditableCells = (pos: Position) => (
+  // ── 읽기전용 셀 ──
+  const renderCells = (pos: Position) => (
     <>
       <td className={tdClass('left')}>
-        <InlineDate
-          value={pos.entry_date}
-          onSave={(v) => updateField(pos, 'entry_date', v)}
-        />
+        <span className="text-sm">{pos.entry_date ?? '-'}</span>
       </td>
       <td className={tdClass('left')}>
         <span className={pos.direction === 'long' ? 'text-emerald-400 text-sm' : 'text-rose-400 text-sm'}>
@@ -80,17 +100,10 @@ export default function TraderPositionsPage() {
         <span className="text-sm">{pos.leverage || '-'}</span>
       </td>
       <td className={tdClass('left')}>
-        <InlineDate
-          value={pos.exit_date}
-          onSave={(v) => updateField(pos, 'exit_date', v)}
-        />
+        <span className="text-sm">{pos.exit_date ?? '-'}</span>
       </td>
       <td className={tdClass('right')}>
-        <InlineUSDT
-          value={pos.closing_balance_usd}
-          integer
-          onSave={(v) => updateField(pos, 'closing_balance_usd', v ? parseFloat(v) : null)}
-        />
+        <span className="text-sm font-mono">{pos.closing_balance_usd ? formatUSDTInt(pos.closing_balance_usd) : '-'}</span>
       </td>
     </>
   )
@@ -108,6 +121,7 @@ export default function TraderPositionsPage() {
     { label: 'P&L', align: 'right' },
     { label: 'ROI', align: 'right' },
     { label: '상태', align: 'left' },
+    { label: '', align: 'left' },
   ]
 
   const thClass = (align: string) =>
@@ -180,7 +194,7 @@ export default function TraderPositionsPage() {
                         <td className={tdClass('left')}>{renderAccount(pos)}</td>
                         <td className={tdClass('left')}>{renderExchange(pos)}</td>
                         <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
-                        {renderEditableCells(pos)}
+                        {renderCells(pos)}
                         <td className={tdClass('right')}>{renderPnl(group.combinedPnl)}</td>
                         <td className={tdClass('right')}>{renderRoi(group.combinedRoi)}</td>
                         <td className={tdClass('left')}>
@@ -196,6 +210,9 @@ export default function TraderPositionsPage() {
                             <option value="active" className="bg-gray-900 text-emerald-300">활성</option>
                             <option value="closed" className="bg-gray-900 text-gray-300">종료</option>
                           </select>
+                        </td>
+                        <td className={tdClass('left')}>
+                          <button onClick={() => setEditTarget(pos)} className="text-xs text-accent hover:text-accent-hover">수정</button>
                         </td>
                       </tr>
                     )
@@ -233,7 +250,7 @@ export default function TraderPositionsPage() {
                         <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
 
                         {/* 편집 가능 셀 */}
-                        {renderEditableCells(pos)}
+                        {renderCells(pos)}
 
                         {/* 공유 컬럼: P&L, ROI, 상태 */}
                         {isFirst && (
@@ -260,6 +277,9 @@ export default function TraderPositionsPage() {
                             </td>
                           </>
                         )}
+                        <td className={tdClass('left')}>
+                          <button onClick={() => setEditTarget(pos)} className="text-xs text-accent hover:text-accent-hover">수정</button>
+                        </td>
                       </tr>
                     )
                   })
@@ -269,6 +289,29 @@ export default function TraderPositionsPage() {
           </div>
         </div>
       )}
+      {/* 수정 모달 */}
+      <Modal isOpen={!!editTarget} onClose={() => setEditTarget(null)} title="포지션 수정">
+        {editTarget && (
+          <div className="space-y-3">
+            <div className="text-sm text-muted">
+              {renderExchange(editTarget)} · {(editTarget.direction || 'long').toUpperCase()} · 예치금 {formatUSDTInt(editTarget.deposit_usd)}
+            </div>
+            <DynamicForm
+              fields={editFields}
+              initialValues={{
+                closing_balance_usd: editTarget.closing_balance_usd ?? '',
+                exit_date: editTarget.exit_date ?? '',
+                leverage: editTarget.leverage ?? '',
+                entry_date: editTarget.entry_date ?? '',
+                issue_note: editTarget.issue_note ?? '',
+              }}
+              onSubmit={handleEdit}
+              submitLabel="수정"
+              isLoading={updatePosition.isPending}
+            />
+          </div>
+        )}
+      </Modal>
     </DashboardLayout>
   )
 }
