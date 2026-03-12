@@ -24,6 +24,24 @@ export default function TraderPositionsPage() {
 
   const positionGroups = useMemo(() => groupPositions(positions), [positions])
 
+  // ── 계정별 그룹화 ──
+  const accountGroups = useMemo(() => {
+    const map = new Map<string, PositionGroup[]>()
+    for (const group of positionGroups) {
+      const accountId = group.positions[0].account_id
+      const existing = map.get(accountId) ?? []
+      map.set(accountId, [...existing, group])
+    }
+    return Array.from(map.entries()).map(([accountId, groups]) => {
+      const a = accounts.find((ac) => ac.id === accountId)
+      const meta = a?.metadata as Record<string, string> | undefined
+      const email = meta?.gmail || a?.alias || '-'
+      const label = email.includes('@') ? email.split('@')[0] : email
+      const exchange = a?.exchange ?? '-'
+      return { accountId, label, exchange, groups }
+    })
+  }, [positionGroups, accounts])
+
   // ── 수정 폼 필드 ──
   const editFields: FieldDefinition[] = [
     { key: 'direction', label: '방향', type: 'select', required: true, options: ['long', 'short'] },
@@ -79,14 +97,6 @@ export default function TraderPositionsPage() {
     return <span className={n >= 0 ? 'pnl-positive' : 'pnl-negative'}>{n >= 0 ? '+' : ''}{roi}%</span>
   }
 
-  const renderAccount = (pos: Position) => {
-    const a = accounts.find((ac: Account) => ac.id === pos.account_id)
-    if (!a) return '-'
-    const meta = a.metadata as Record<string, string>
-    const email = meta?.gmail || a.alias
-    return email.includes('@') ? email.split('@')[0] : email
-  }
-
   // ── 읽기전용 셀 ──
   const renderCells = (pos: Position) => (
     <>
@@ -112,7 +122,6 @@ export default function TraderPositionsPage() {
 
   // ── 테이블 헤더 ──
   const headers = [
-    { label: '계정', align: 'left' },
     { label: '거래소', align: 'left' },
     { label: '예치금', align: 'right' },
     { label: '진입일', align: 'left' },
@@ -167,108 +176,52 @@ export default function TraderPositionsPage() {
 
       {isLoading ? (
         <div className="glass-card p-8 text-center text-muted text-sm">데이터 로딩 중...</div>
-      ) : positionGroups.length === 0 ? (
+      ) : accountGroups.length === 0 ? (
         <div className="glass-card p-8 text-center text-muted text-sm">활성 포지션이 없습니다.</div>
       ) : (
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-card-border">
-                  {headers.map((h, i) => (
-                    <th key={i} className={thClass(h.align)}>{h.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {positionGroups.map((group, gi) => {
-                  const first = group.positions[0]
-                  const rowCount = group.positions.length
+        <div className="space-y-4">
+          {accountGroups.map((ag) => (
+            <div key={ag.accountId} className="glass-card overflow-hidden">
+              {/* 계정 헤더 */}
+              <div className="px-4 py-3 border-b border-card-border bg-card-border/10 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-accent" />
+                <span className="text-sm font-semibold text-foreground">{ag.label}</span>
+                <span className="text-xs text-muted">({ag.exchange})</span>
+              </div>
 
-                  // ── 싱글 포지션 ──
-                  if (group.type === 'single' || rowCount === 1) {
-                    const pos = first
-                    return (
-                      <tr
-                        key={pos.id}
-                        className={`border-b border-card-border/50 ${gi % 2 !== 0 ? 'bg-card-border/5' : ''}`}
-                      >
-                        <td className={tdClass('left')}>{renderAccount(pos)}</td>
-                        <td className={tdClass('left')}>{renderExchange(pos)}</td>
-                        <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
-                        {renderCells(pos)}
-                        <td className={tdClass('right')}>{renderPnl(group.combinedPnl)}</td>
-                        <td className={tdClass('right')}>{renderRoi(group.combinedRoi)}</td>
-                        <td className={tdClass('left')}>
-                          <select
-                            value={pos.status}
-                            onChange={(e) => handleStatusChange(group, e.target.value)}
-                            className={`text-xs font-medium px-2 py-1 rounded-lg border transition-colors cursor-pointer
-                              ${pos.status === 'active'
-                                ? 'bg-emerald-900 border-emerald-600 text-emerald-300'
-                                : 'bg-gray-800 border-gray-600 text-gray-300'
-                              } focus:outline-none focus:border-accent`}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-card-border/50">
+                      {headers.map((h, i) => (
+                        <th key={i} className={thClass(h.align)}>{h.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ag.groups.map((group, gi) => {
+                      const first = group.positions[0]
+                      const rowCount = group.positions.length
+
+                      // ── 싱글 포지션 ──
+                      if (group.type === 'single' || rowCount === 1) {
+                        const pos = first
+                        return (
+                          <tr
+                            key={pos.id}
+                            className={`border-b border-card-border/30 ${gi % 2 !== 0 ? 'bg-card-border/5' : ''}`}
                           >
-                            <option value="active" className="bg-gray-900 text-emerald-300">활성</option>
-                            <option value="closed" className="bg-gray-900 text-gray-300">종료</option>
-                          </select>
-                        </td>
-                        <td className={tdClass('left')}>
-                          <button onClick={() => setEditTarget(pos)} className="text-xs text-accent hover:text-accent-hover">수정</button>
-                        </td>
-                      </tr>
-                    )
-                  }
-
-                  // ── 델타뉴트럴 페어 ──
-                  return group.positions.map((pos, pi) => {
-                    const isFirst = pi === 0
-                    const pairLabel = (pos.metadata as Record<string, string> | undefined)?.pair
-                    return (
-                      <tr
-                        key={pos.id}
-                        className={`border-b ${pi === rowCount - 1 ? 'border-card-border' : 'border-card-border/30'}
-                          ${gi % 2 !== 0 ? 'bg-card-border/5' : ''}
-                          ${isFirst ? 'border-t border-accent/20' : ''}`}
-                      >
-                        {isFirst && (
-                          <td className={mergedCellClass('left')} rowSpan={rowCount}>{renderAccount(first)}</td>
-                        )}
-
-                        {/* 거래소 + 페어 라벨 */}
-                        <td className={tdClass('left')}>
-                          <div className="flex items-center gap-1">
-                            <span>{renderExchange(pos)}</span>
-                            {pairLabel && (
-                              <span className={`text-[9px] px-1 py-0.5 rounded font-bold
-                                ${pairLabel === 'A' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                                {pairLabel}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* 예치금 */}
-                        <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
-
-                        {/* 편집 가능 셀 */}
-                        {renderCells(pos)}
-
-                        {/* 공유 컬럼: P&L, ROI, 상태 */}
-                        {isFirst && (
-                          <>
-                            <td className={mergedCellClass('right')} rowSpan={rowCount}>
-                              {renderPnl(group.combinedPnl)}
-                            </td>
-                            <td className={mergedCellClass('right')} rowSpan={rowCount}>
-                              {renderRoi(group.combinedRoi)}
-                            </td>
-                            <td className={mergedCellClass('left')} rowSpan={rowCount}>
+                            <td className={tdClass('left')}>{renderExchange(pos)}</td>
+                            <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
+                            {renderCells(pos)}
+                            <td className={tdClass('right')}>{renderPnl(group.combinedPnl)}</td>
+                            <td className={tdClass('right')}>{renderRoi(group.combinedRoi)}</td>
+                            <td className={tdClass('left')}>
                               <select
-                                value={first.status}
+                                value={pos.status}
                                 onChange={(e) => handleStatusChange(group, e.target.value)}
                                 className={`text-xs font-medium px-2 py-1 rounded-lg border transition-colors cursor-pointer
-                                  ${first.status === 'active'
+                                  ${pos.status === 'active'
                                     ? 'bg-emerald-900 border-emerald-600 text-emerald-300'
                                     : 'bg-gray-800 border-gray-600 text-gray-300'
                                   } focus:outline-none focus:border-accent`}
@@ -277,18 +230,79 @@ export default function TraderPositionsPage() {
                                 <option value="closed" className="bg-gray-900 text-gray-300">종료</option>
                               </select>
                             </td>
-                          </>
-                        )}
-                        <td className={tdClass('left')}>
-                          <button onClick={() => setEditTarget(pos)} className="text-xs text-accent hover:text-accent-hover">수정</button>
-                        </td>
-                      </tr>
-                    )
-                  })
-                })}
-              </tbody>
-            </table>
-          </div>
+                            <td className={tdClass('left')}>
+                              <button onClick={() => setEditTarget(pos)} className="text-xs text-accent hover:text-accent-hover">수정</button>
+                            </td>
+                          </tr>
+                        )
+                      }
+
+                      // ── 델타뉴트럴 페어 ──
+                      return group.positions.map((pos, pi) => {
+                        const isFirst = pi === 0
+                        const pairLabel = (pos.metadata as Record<string, string> | undefined)?.pair
+                        return (
+                          <tr
+                            key={pos.id}
+                            className={`border-b ${pi === rowCount - 1 ? 'border-card-border/50' : 'border-card-border/20'}
+                              ${gi % 2 !== 0 ? 'bg-card-border/5' : ''}
+                              ${isFirst ? 'border-t border-accent/20' : ''}`}
+                          >
+                            {/* 거래소 + 페어 라벨 */}
+                            <td className={tdClass('left')}>
+                              <div className="flex items-center gap-1">
+                                <span>{renderExchange(pos)}</span>
+                                {pairLabel && (
+                                  <span className={`text-[9px] px-1 py-0.5 rounded font-bold
+                                    ${pairLabel === 'A' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                    {pairLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 예치금 */}
+                            <td className={tdClass('right')}>{formatUSDTInt(pos.deposit_usd)}</td>
+
+                            {renderCells(pos)}
+
+                            {/* 공유 컬럼: P&L, ROI, 상태 */}
+                            {isFirst && (
+                              <>
+                                <td className={mergedCellClass('right')} rowSpan={rowCount}>
+                                  {renderPnl(group.combinedPnl)}
+                                </td>
+                                <td className={mergedCellClass('right')} rowSpan={rowCount}>
+                                  {renderRoi(group.combinedRoi)}
+                                </td>
+                                <td className={mergedCellClass('left')} rowSpan={rowCount}>
+                                  <select
+                                    value={first.status}
+                                    onChange={(e) => handleStatusChange(group, e.target.value)}
+                                    className={`text-xs font-medium px-2 py-1 rounded-lg border transition-colors cursor-pointer
+                                      ${first.status === 'active'
+                                        ? 'bg-emerald-900 border-emerald-600 text-emerald-300'
+                                        : 'bg-gray-800 border-gray-600 text-gray-300'
+                                      } focus:outline-none focus:border-accent`}
+                                  >
+                                    <option value="active" className="bg-gray-900 text-emerald-300">활성</option>
+                                    <option value="closed" className="bg-gray-900 text-gray-300">종료</option>
+                                  </select>
+                                </td>
+                              </>
+                            )}
+                            <td className={tdClass('left')}>
+                              <button onClick={() => setEditTarget(pos)} className="text-xs text-accent hover:text-accent-hover">수정</button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {/* 수정 모달 */}
