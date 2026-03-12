@@ -10,6 +10,7 @@ export interface TraderFundItem {
   email: string
   role: string
   fund: number
+  operatingFund: number  // 거래소 운용 중 금액 (trader_to_exchange - exchange_to_trader)
   pnl: number
   roi: string
   adjustedFund: number
@@ -37,14 +38,18 @@ export function useFundSummary(
 
     let totalAUM = 0
     let headFund = 0
-    const traderFunds = new Map<string, { name: string; email: string; role: string; fund: number }>()
+    const traderFunds = new Map<string, { name: string; email: string; role: string; fund: number; operating: number }>()
+
+    const getOrCreate = (traderId: string) => {
+      const trader = traders.find((t) => t.id === traderId)
+      const traderEmail = (trader?.metadata as Record<string, string>)?.email ?? ''
+      return traderFunds.get(traderId) ?? { name: trader?.name ?? '미지정', email: traderEmail, role: trader?.role ?? 'trader', fund: 0, operating: 0 }
+    }
 
     for (const alloc of active) {
       const meta = alloc.metadata as Record<string, string> | undefined
       const flow = meta?.flow_type ?? ''
       const amount = parseFloat(alloc.amount_usd)
-      const trader = traders.find((t) => t.id === alloc.trader_id)
-      const traderEmail = (trader?.metadata as Record<string, string>)?.email ?? ''
 
       switch (flow) {
         case 'company_to_head':
@@ -53,25 +58,27 @@ export function useFundSummary(
           break
         case 'head_to_trader': {
           headFund -= amount
-          const existing = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', email: traderEmail, role: trader?.role ?? 'trader', fund: 0 }
+          const existing = getOrCreate(alloc.trader_id)
           existing.fund += amount
           traderFunds.set(alloc.trader_id, existing)
           break
         }
         case 'trader_to_exchange': {
-          const ex = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', email: traderEmail, role: trader?.role ?? 'trader', fund: 0 }
+          const ex = getOrCreate(alloc.trader_id)
           ex.fund -= amount
+          ex.operating += amount
           traderFunds.set(alloc.trader_id, ex)
           break
         }
         case 'exchange_to_trader': {
-          const ex2 = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', email: traderEmail, role: trader?.role ?? 'trader', fund: 0 }
+          const ex2 = getOrCreate(alloc.trader_id)
           ex2.fund += amount
+          ex2.operating -= amount
           traderFunds.set(alloc.trader_id, ex2)
           break
         }
         case 'trader_to_head': {
-          const ex3 = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', email: traderEmail, role: trader?.role ?? 'trader', fund: 0 }
+          const ex3 = getOrCreate(alloc.trader_id)
           ex3.fund -= amount
           traderFunds.set(alloc.trader_id, ex3)
           headFund += amount
@@ -84,7 +91,7 @@ export function useFundSummary(
         default:
           totalAUM += amount
           {
-            const fallback = traderFunds.get(alloc.trader_id) ?? { name: trader?.name ?? '미지정', email: traderEmail, role: trader?.role ?? 'trader', fund: 0 }
+            const fallback = getOrCreate(alloc.trader_id)
             fallback.fund += amount
             traderFunds.set(alloc.trader_id, fallback)
           }
@@ -97,7 +104,7 @@ export function useFundSummary(
         const pnlData = traderPnLMap.get(id)
         const pnl = pnlData ? parseFloat(pnlData.pnl) : 0
         const roi = pnlData?.roi ?? '0.00'
-        return { id, ...data, pnl, roi, adjustedFund: data.fund + pnl }
+        return { id, name: data.name, email: data.email, role: data.role, fund: data.fund, operatingFund: Math.max(data.operating, 0), pnl, roi, adjustedFund: data.fund + pnl }
       })
       .sort((a, b) => b.adjustedFund - a.adjustedFund)
 

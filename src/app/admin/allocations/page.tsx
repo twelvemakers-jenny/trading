@@ -357,7 +357,7 @@ export default function AllocationsPage() {
                     <span className="text-xs text-muted capitalize">{ta.role === 'head_trader' ? 'Head' : 'Trader'}</span>
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-lg font-bold text-foreground">{formatUSD(String(ta.adjustedFund.toFixed(1)))}</p>
+                    <p className="text-lg font-bold text-foreground">{formatUSD(String((ta.fund + ta.operatingFund).toFixed(1)))}</p>
                     {ta.pnl !== 0 && (
                       <span className={`text-xs font-medium ${ta.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {ta.pnl >= 0 ? '+' : ''}{formatUSD(String(ta.pnl.toFixed(1)))}
@@ -365,9 +365,18 @@ export default function AllocationsPage() {
                       </span>
                     )}
                   </div>
-                  {ta.pnl !== 0 && (
-                    <p className="text-xs text-muted mt-0.5">원금: {formatUSD(String(ta.fund.toFixed(1)))}</p>
-                  )}
+                  <div className="mt-1.5 space-y-1">
+                    {ta.operatingFund > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted">운용 중</span>
+                        <span className="font-semibold text-accent">{formatUSD(String(ta.operatingFund.toFixed(1)))}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted">잔여</span>
+                      <span className="font-semibold text-foreground">{formatUSD(String(ta.fund.toFixed(1)))}</span>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2 mt-2">
                     <div className="flex-1 h-1.5 bg-card-border/30 rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
