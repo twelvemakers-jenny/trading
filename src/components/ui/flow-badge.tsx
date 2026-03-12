@@ -56,6 +56,11 @@ export function getFlowOptions(role: UserRole | undefined): string[] {
   return getFlowsByRole(role).map((f) => `${f}::${FLOW_CONFIG[f].label}`)
 }
 
+// 이체원장 폼용: 거래소 이체 포함 전체 흐름 옵션
+export function getAllFlowOptions(): string[] {
+  return ALL_FLOWS.map((f) => `${f}::${FLOW_CONFIG[f].label}`)
+}
+
 export function FlowBadge({ flow, size }: { flow: string; size?: 'sm' | 'default' }) {
   const config = FLOW_CONFIG[flow as FlowType]
   if (!config) return <span className="text-xs text-muted">{flow}</span>

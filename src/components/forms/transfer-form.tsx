@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getFlowOptions } from '@/components/ui/flow-badge'
+import { getAllFlowOptions } from '@/components/ui/flow-badge'
 import { formatUSDT } from '@/lib/calculations'
 import type { Trader, Account, Transfer, UserRole } from '@/types/database'
 
@@ -40,7 +40,7 @@ export function TransferForm({
   isLoading,
   submitLabel,
 }: TransferFormProps) {
-  const flowOptions = getFlowOptions(currentUserRole)
+  const flowOptions = getAllFlowOptions()
   const initMeta = initialValues?.metadata as Record<string, string> | undefined
 
   const [flowType, setFlowType] = useState(
