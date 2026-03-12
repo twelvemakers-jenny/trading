@@ -248,7 +248,7 @@ export function AdminDashboard() {
           </p>
         </BentoCard>
 
-        {/* ── R2: 자산 구성 (4col) + 월별 P&L (8col) ── */}
+        {/* ── R2: 자산 구성 (4col) + 트레이더 운용 현황 (8col) ── */}
         <BentoCard className="col-span-12 md:col-span-4" label="자산 구성" index={5}>
           {assetPieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
@@ -267,22 +267,42 @@ export function AdminDashboard() {
           )}
         </BentoCard>
 
-        <BentoCard className="col-span-12 md:col-span-8" label="월별 P&L" index={6}>
-          {monthlyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,92,246,0.06)" />
-                <XAxis dataKey="month" tick={{ fill: '#6b7294', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#6b7294', fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name === 'pnl' ? '월간 P&L' : '누적 P&L']} />
-                <Bar dataKey="pnl" radius={[4, 4, 0, 0]} name="pnl">
-                  {monthlyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? GREEN : RED} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[220px] flex items-center justify-center text-muted text-sm">종료된 포지션이 없습니다</div>
-          )}
+        <BentoCard className="col-span-12 md:col-span-8" label="트레이더 운용 현황" index={6}>
+          <div className="overflow-x-auto -mx-1">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/[0.05]">
+                  {['트레이더', '역할', '할당 펀드', '운용 펀드', 'P&L', 'ROI', '활성', '완료'].map((h) => (
+                    <th key={h} className="px-3 py-2 text-[10px] font-medium text-muted text-left whitespace-nowrap uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {traderStats.map((t) => (
+                  <tr key={t.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                    <td className="px-3 py-2.5">
+                      <span className="text-sm font-medium">{t.name}</span>
+                      {t.email && <span className="block text-[10px] text-muted">{t.email}</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-muted capitalize">{t.role === 'head_trader' ? 'Head' : 'Trader'}</td>
+                    <td className="px-3 py-2.5 text-sm font-mono">{formatUSD(String(t.allocatedFund.toFixed(1)))}</td>
+                    <td className="px-3 py-2.5 text-sm font-mono text-accent">{formatUSD(String(t.operatingFund.toFixed(1)))}</td>
+                    <td className={`px-3 py-2.5 text-sm font-mono ${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {t.pnl === 0 ? <span className="text-muted">-</span> : fmtSigned(t.pnl)}
+                    </td>
+                    <td className={`px-3 py-2.5 text-sm font-mono ${t.roi >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {t.pnl === 0 ? <span className="text-muted">-</span> : `${t.roi >= 0 ? '+' : ''}${t.roi.toFixed(1)}%`}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-accent">{t.activeCount}건</td>
+                    <td className="px-3 py-2.5 text-sm text-muted">{t.closedCount}건</td>
+                  </tr>
+                ))}
+                {traderStats.length === 0 && (
+                  <tr><td colSpan={8} className="px-3 py-6 text-center text-muted text-sm">트레이더 없음</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </BentoCard>
 
         {/* ── R3: 누적 P&L 추이 (6col) + 월별 ROI (6col) ── */}
@@ -324,43 +344,23 @@ export function AdminDashboard() {
           )}
         </BentoCard>
 
-        {/* ── R4: 트레이더 운용 현황 (8col) + 트레이더별 P&L (4col) ── */}
-        <BentoCard className="col-span-12 lg:col-span-8" label="트레이더 운용 현황" index={9}>
-          <div className="overflow-x-auto -mx-1">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/[0.05]">
-                  {['트레이더', '역할', '할당 펀드', '운용 펀드', 'P&L', 'ROI', '활성', '완료'].map((h) => (
-                    <th key={h} className="px-3 py-2 text-[10px] font-medium text-muted text-left whitespace-nowrap uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {traderStats.map((t) => (
-                  <tr key={t.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                    <td className="px-3 py-2.5">
-                      <span className="text-sm font-medium">{t.name}</span>
-                      {t.email && <span className="block text-[10px] text-muted">{t.email}</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-muted capitalize">{t.role === 'head_trader' ? 'Head' : 'Trader'}</td>
-                    <td className="px-3 py-2.5 text-sm font-mono">{formatUSD(String(t.allocatedFund.toFixed(1)))}</td>
-                    <td className="px-3 py-2.5 text-sm font-mono text-accent">{formatUSD(String(t.operatingFund.toFixed(1)))}</td>
-                    <td className={`px-3 py-2.5 text-sm font-mono ${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {t.pnl === 0 ? <span className="text-muted">-</span> : fmtSigned(t.pnl)}
-                    </td>
-                    <td className={`px-3 py-2.5 text-sm font-mono ${t.roi >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {t.pnl === 0 ? <span className="text-muted">-</span> : `${t.roi >= 0 ? '+' : ''}${t.roi.toFixed(1)}%`}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-accent">{t.activeCount}건</td>
-                    <td className="px-3 py-2.5 text-sm text-muted">{t.closedCount}건</td>
-                  </tr>
-                ))}
-                {traderStats.length === 0 && (
-                  <tr><td colSpan={8} className="px-3 py-6 text-center text-muted text-sm">트레이더 없음</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* ── R4: 월별 P&L (8col) + 트레이더별 P&L (4col) ── */}
+        <BentoCard className="col-span-12 lg:col-span-8" label="월별 P&L" index={9}>
+          {monthlyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,92,246,0.06)" />
+                <XAxis dataKey="month" tick={{ fill: '#6b7294', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#6b7294', fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                <Tooltip {...tooltipStyle} formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name === 'pnl' ? '월간 P&L' : '누적 P&L']} />
+                <Bar dataKey="pnl" radius={[4, 4, 0, 0]} name="pnl">
+                  {monthlyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? GREEN : RED} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center text-muted text-sm">종료된 포지션이 없습니다</div>
+          )}
         </BentoCard>
 
         <BentoCard className="col-span-12 lg:col-span-4" label="트레이더별 P&L" index={10}>
