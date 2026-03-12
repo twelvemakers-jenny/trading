@@ -52,6 +52,20 @@ export function getAllFlows(): FlowType[] {
   return ALL_FLOWS
 }
 
+// 트레이더용 이체 흐름 (company ↔ head 제외)
+const TRADER_TRANSFER_FLOWS: FlowType[] = [
+  'head_to_trader', 'trader_to_exchange',
+  'exchange_to_trader', 'trader_to_head',
+]
+
+export function getTraderTransferFlows(): FlowType[] {
+  return TRADER_TRANSFER_FLOWS
+}
+
+export function getTraderTransferFlowOptions(): string[] {
+  return TRADER_TRANSFER_FLOWS.map((f) => `${f}::${FLOW_CONFIG[f].label}`)
+}
+
 export function getFlowOptions(role: UserRole | undefined): string[] {
   return getFlowsByRole(role).map((f) => `${f}::${FLOW_CONFIG[f].label}`)
 }

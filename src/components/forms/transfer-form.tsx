@@ -28,6 +28,7 @@ export interface TransferFormProps {
   onSubmit: (payload: Record<string, unknown>) => void
   isLoading: boolean
   submitLabel: string
+  overrideFlowOptions?: string[]
 }
 
 export function TransferForm({
@@ -39,8 +40,9 @@ export function TransferForm({
   onSubmit,
   isLoading,
   submitLabel,
+  overrideFlowOptions,
 }: TransferFormProps) {
-  const flowOptions = getAllFlowOptions()
+  const flowOptions = overrideFlowOptions ?? getAllFlowOptions()
   const initMeta = initialValues?.metadata as Record<string, string> | undefined
 
   const [flowType, setFlowType] = useState(
