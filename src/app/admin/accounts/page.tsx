@@ -115,10 +115,11 @@ export default function AccountsPage() {
     }
   }
 
-  // 섹션별 표시 필드
+  // 섹션별 표시 필드 (code는 고정 컬럼으로 분리)
   const sectionFields = activeSection === 'all'
     ? SECTIONS.flatMap((s) => s.fields)
     : SECTIONS.find((s) => s.title === activeSection)?.fields ?? []
+  const sectionFieldsWithoutCode = sectionFields.filter((f) => f.key !== 'code')
 
   const handleExport = () => {
     const allFields = SECTIONS.flatMap((s) => s.fields)
@@ -180,7 +181,7 @@ export default function AccountsPage() {
         </div>
       </div>
 
-      {/* 테이블 */}
+      {/* 테이블 — Frozen columns + Sticky header + Viewport-bottom scrollbar */}
       {isLoading ? (
         <div className="glass-card p-8 text-center text-muted text-sm">로딩 중...</div>
       ) : filtered.length === 0 ? (
@@ -189,14 +190,16 @@ export default function AccountsPage() {
         </div>
       ) : (
         <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
+          <div className="overflow-auto max-h-[calc(100vh-260px)]">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-20">
                 <tr className="border-b border-card-border">
-                  <th className="px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap sticky left-0 bg-card z-10">
+                  {/* # — frozen col 1 */}
+                  <th className="sticky left-0 z-30 bg-[#0e0b1e] px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap w-[36px] min-w-[36px]">
                     #
                   </th>
-                  <th className="px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap">
+                  {/* 트레이더 — frozen col 2 */}
+                  <th className="sticky left-[36px] z-30 bg-[#0e0b1e] px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap w-[130px] min-w-[130px]">
                     <button
                       onClick={() => handleSort('_trader')}
                       className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
@@ -209,8 +212,23 @@ export default function AccountsPage() {
                       )}
                     </button>
                   </th>
-                  {sectionFields.map((f) => (
-                    <th key={f.key} className="px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap">
+                  {/* 분류(code) — frozen col 3 + 경계선 */}
+                  <th className="sticky left-[166px] z-30 bg-[#0e0b1e] px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap w-[72px] min-w-[72px] shadow-[2px_0_8px_rgba(0,0,0,0.4)]">
+                    <button
+                      onClick={() => handleSort('code')}
+                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      분류
+                      {sortKey === 'code' ? (
+                        <span className="text-accent">{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</span>
+                      ) : (
+                        <span className="opacity-30">{'\u25B2'}</span>
+                      )}
+                    </button>
+                  </th>
+                  {/* 나머지 필드 (code 제외) */}
+                  {sectionFieldsWithoutCode.map((f) => (
+                    <th key={f.key} className="bg-[#0e0b1e] px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap">
                       <button
                         onClick={() => handleSort(f.key)}
                         className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
@@ -224,7 +242,7 @@ export default function AccountsPage() {
                       </button>
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-xs font-medium text-muted text-left">액션</th>
+                  <th className="bg-[#0e0b1e] px-3 py-2 text-xs font-medium text-muted text-left whitespace-nowrap">액션</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,12 +251,14 @@ export default function AccountsPage() {
                   return (
                     <tr
                       key={account.id}
-                      className="border-b border-card-border/50 hover:bg-card-border/20 transition-colors"
+                      className="group border-b border-card-border/50 transition-colors"
                     >
-                      <td className="px-3 py-2 text-xs text-muted sticky left-0 bg-card z-10">
+                      {/* # — frozen */}
+                      <td className="sticky left-0 z-10 bg-[#0e0b1e] group-hover:bg-[#141125] px-3 py-2 text-xs text-muted transition-colors w-[36px] min-w-[36px]">
                         {i + 1}
                       </td>
-                      <td className="px-3 py-2 text-sm whitespace-nowrap">
+                      {/* 트레이더 — frozen */}
+                      <td className="sticky left-[36px] z-10 bg-[#0e0b1e] group-hover:bg-[#141125] px-3 py-2 text-sm whitespace-nowrap transition-colors w-[130px] min-w-[130px]">
                         <select
                           value={account.trader_id ?? ''}
                           onChange={(e) => {
@@ -248,7 +268,7 @@ export default function AccountsPage() {
                               trader_id: newTraderId,
                             })
                           }}
-                          className="bg-card border border-card-border/50 rounded px-2 py-1 text-sm
+                          className="bg-transparent border border-card-border/50 rounded px-2 py-1 text-sm
                                      text-foreground focus:outline-none focus:border-accent transition-colors
                                      cursor-pointer hover:border-card-border
                                      [&>option]:bg-[#1e293b] [&>option]:text-white"
@@ -263,7 +283,12 @@ export default function AccountsPage() {
                             ))}
                         </select>
                       </td>
-                      {sectionFields.map((f) => {
+                      {/* 분류(code) — frozen + 경계선 */}
+                      <td className="sticky left-[166px] z-10 bg-[#0e0b1e] group-hover:bg-[#141125] px-3 py-2 text-sm whitespace-nowrap transition-colors w-[72px] min-w-[72px] shadow-[2px_0_8px_rgba(0,0,0,0.4)]">
+                        {meta.code || '-'}
+                      </td>
+                      {/* 나머지 필드 (code 제외) */}
+                      {sectionFieldsWithoutCode.map((f) => {
                         const cellId = `${account.id}_${f.key}`
                         const isPassword = f.type === 'password'
                         const isRevealed = visiblePw.has(cellId)
@@ -273,7 +298,7 @@ export default function AccountsPage() {
                           return (
                             <td
                               key={f.key}
-                              className="px-3 py-2 text-sm whitespace-nowrap max-w-[200px] truncate cursor-pointer select-none"
+                              className="px-3 py-2 text-sm whitespace-nowrap max-w-[200px] truncate cursor-pointer select-none group-hover:bg-card-border/20 transition-colors"
                               onClick={() => {
                                 setVisiblePw((prev) => {
                                   const next = new Set(prev)
@@ -294,29 +319,31 @@ export default function AccountsPage() {
                         }
 
                         return (
-                          <td key={f.key} className="px-3 py-2 text-sm whitespace-nowrap max-w-[200px] truncate">
+                          <td key={f.key} className="px-3 py-2 text-sm whitespace-nowrap max-w-[200px] truncate group-hover:bg-card-border/20 transition-colors">
                             {val || '-'}
                           </td>
                         )
                       })}
-                      <td className="px-3 py-2 flex gap-2">
-                        <button
-                          onClick={() => setEditTarget(account)}
-                          className="text-xs text-accent hover:text-accent-hover"
-                        >
-                          수정
-                        </button>
-                        <button
-                          onClick={() => {
-                            const name = meta.kyc_name || account.alias
-                            if (window.confirm(`"${name}" 계정을 삭제하시겠습니까?`)) {
-                              deleteAccount.mutate(account.id)
-                            }
-                          }}
-                          className="text-xs text-danger hover:text-red-400"
-                        >
-                          삭제
-                        </button>
+                      <td className="px-3 py-2 whitespace-nowrap group-hover:bg-card-border/20 transition-colors">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditTarget(account)}
+                            className="text-xs text-accent hover:text-accent-hover"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => {
+                              const name = meta.kyc_name || account.alias
+                              if (window.confirm(`"${name}" 계정을 삭제하시겠습니까?`)) {
+                                deleteAccount.mutate(account.id)
+                              }
+                            }}
+                            className="text-xs text-danger hover:text-red-400"
+                          >
+                            삭제
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
