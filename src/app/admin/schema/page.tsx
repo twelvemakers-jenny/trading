@@ -352,6 +352,7 @@ function ExchangeEditor({
   }, [isLoading])
 
   const addExchange = () => {
+    if (!window.confirm('새 거래소를 추가하시겠습니까?')) return
     setExchanges((prev) => [
       ...prev,
       { name: '', color: '#6b7280', rebate_pct: '', reward_pct: '', referral_url: '', event_url: '', admin_url: '' },
@@ -360,6 +361,8 @@ function ExchangeEditor({
   }
 
   const removeExchange = (index: number) => {
+    const name = exchanges[index]?.name || '이름 없음'
+    if (!window.confirm(`"${name}" 거래소를 삭제하시겠습니까?`)) return
     setExchanges((prev) => prev.filter((_, i) => i !== index))
     setSynced(false)
   }
